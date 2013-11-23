@@ -1,0 +1,520 @@
+/*
+ * This program allows simulating a Heater device.
+ */
+
+#include "wbus_server.h"
+
+#include <gtk/gtk.h>
+#include <glade/glade.h>
+
+#include <glib.h>
+#include <glib/gprintf.h>
+#include <string.h>
+#include <stdlib.h>
+
+static const char *ht_labels[] = {
+  "Off", "Start", "Preheat", "Glow", "Ignite", "Stabilize", "Ramp up", "Burn", "Stop", "Cool down", "End",
+  "Ventilate", "Test", "Locked"
+};
+
+static GladeXML *xml;
+
+G_MODULE_EXPORT void
+on_window1_delete_event(GtkWidget *widget,
+                        GdkEvent  *event,
+                        gpointer   user_data) 
+{
+    gtk_main_quit();
+}
+
+static heater_seqmem_t seq[HT_LAST];
+static gint currSeqIdx=0;
+static gboolean doRedraw = TRUE;
+static int dev = 0;
+
+unsigned int getValue(int x, signed short target, signed short step, long time)
+{
+  signed int a;
+  unsigned int result;
+
+  a = (signed long)step*(long)time;
+  if (x == ACT_DP) {
+    result = target - ((a+128)>>8);
+  } else {
+    result = ((signed int)target<<8) - a;
+  }
+  if (result > 25600 || result < 0) {
+    g_message("value out of range %d, x=%d, time=%d", result, x, (gint)time);
+  }
+  return result;
+}
+
+#define SCALEMOD(h,x) ( ((x==ACT_DP)? 60.0f*20.0f:25600.f)/(float)(h) )
+#define ACT2YSTART(seq, x, h) ( (h) - getValue(x, seq.act_target[x], seq.act_step[x], seq.time)/SCALEMOD(h,x) )
+#define ACT2YEND(seq, x, h)   ( (h) - getValue(x, seq.act_target[x], seq.act_step[x], 0)/SCALEMOD(h,x) )
+
+static GdkColor color[NUM_ACT];
+static GtkWidget *spinAct[NUM_ACT][2];
+static GtkWidget *spinSensor[NUM_SENSOR][2];
+static GtkWidget *faultSpin;
+static GtkWidget *timeSpin;
+
+static void update_spin_buttons(heater_seqmem_t *seq, gint idx)
+{
+  gint i;
+
+  for (i=0; i<NUM_ACT; i++) {
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(spinAct[i][0]), (gdouble)(getValue(i, seq->seq.act_target[i], seq->seq.act_step[i], seq->seq.time)>>((i==ACT_DP)?0:8)));
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(spinAct[i][1]), (gdouble)seq->seq.act_target[i]);
+    if (i == ACT_DP) {
+      gtk_spin_button_set_range(GTK_SPIN_BUTTON(spinAct[i][0]), 0.0, 60.0);
+      gtk_spin_button_set_range(GTK_SPIN_BUTTON(spinAct[i][1]), 0.0, 60.0);
+    } else {
+      gtk_spin_button_set_range(GTK_SPIN_BUTTON(spinAct[i][0]), 0.0, 100.0);
+      gtk_spin_button_set_range(GTK_SPIN_BUTTON(spinAct[i][1]), 0.0, 100.0);
+    }
+  }
+  for (i=0; i<NUM_SENSOR; i++) {
+    gtk_spin_button_set_range(GTK_SPIN_BUTTON(spinSensor[i][0]), 0.0f, 65535.0f);
+    gtk_spin_button_set_range(GTK_SPIN_BUTTON(spinSensor[i][1]), 0.0f, 65535.0f);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(spinSensor[i][0]), (gdouble)seq->seq.sensor_min[i]);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(spinSensor[i][1]), (gdouble)seq->seq.sensor_max[i]);
+  }
+  gtk_spin_button_set_range(GTK_SPIN_BUTTON(timeSpin), 0.0f, 2*3600*60*100.0f);
+  gtk_spin_button_set_value(GTK_SPIN_BUTTON(timeSpin), (gdouble)seq->seq.time*100);
+
+  gtk_spin_button_set_range(GTK_SPIN_BUTTON(faultSpin), 0.0f, 255.0f);
+  gtk_spin_button_set_value(GTK_SPIN_BUTTON(faultSpin), (gdouble)seq->seq.max_faults);
+
+  gtk_label_set_text(GTK_LABEL(glade_xml_get_widget(xml, "label11")), ht_labels[idx]);
+}
+
+static void draw_curves(GtkWidget *da, heater_seqmem_t seq[])
+{
+  gint i, x, at, width, heigth;
+  gint xscale;
+
+  gtk_widget_get_size_request(da, &width, &heigth);
+
+  xscale = 2;
+
+  if (width < seq[HT_LAST-1].seq.time) {
+    for (at=0, i=0; i<HT_LAST; i++) {
+      at += seq[i].seq.time;
+    }
+    width = at/xscale;
+    gtk_widget_set_size_request(da, width, heigth);
+  }
+
+  gdk_gc_set_line_attributes(da->style->fg_gc[GTK_WIDGET_STATE(da)], 5, GDK_LINE_SOLID, GDK_CAP_BUTT, GDK_LINE_SOLID);
+
+  for (x=0; x<NUM_ACT; x++)
+  {
+    GdkPoint points[HT_LAST*2];
+
+    for (at=0, i=0; i<HT_LAST; i++) {
+      if (x == 0 && i == currSeqIdx) {
+        GdkColor c = { 0, 0xd000, 0xd000, 0xd000 };
+        gdk_color_alloc(gtk_widget_get_colormap(da), &c);
+        gdk_gc_set_foreground(da->style->fg_gc[GTK_WIDGET_STATE(da)], &c);
+        gdk_draw_rectangle(da->window,
+                           da->style->fg_gc[GTK_WIDGET_STATE(da)],
+                           TRUE,
+                           at, 0, seq[i].seq.time/xscale, heigth);
+      }
+      points[i*2].x = at;
+      points[i*2].y = ACT2YSTART(seq[i].seq, x, heigth);
+      at += seq[i].seq.time/xscale;
+      points[i*2+1].x = at;
+      points[i*2+1].y = ACT2YEND(seq[i].seq, x, heigth);
+    }
+    gdk_gc_set_foreground(da->style->fg_gc[GTK_WIDGET_STATE(da)], &color[x]);
+    gdk_draw_lines (da->window,
+                    da->style->fg_gc[GTK_WIDGET_STATE(da)],
+                    points,
+                    HT_LAST*2);
+  }
+
+  {
+    GdkColor color = { 0, 0, 0, 0};
+
+    gdk_color_alloc(gtk_widget_get_colormap(da), &color);
+    gdk_gc_set_line_attributes(da->style->fg_gc[GTK_WIDGET_STATE(da)], 1, GDK_LINE_SOLID, GDK_CAP_BUTT, GDK_LINE_SOLID);
+    
+    for (at=0, i=0; i<HT_LAST; i++)
+    {
+      at += seq[i].seq.time/xscale;
+      gdk_gc_set_foreground(da->style->fg_gc[GTK_WIDGET_STATE(da)], &color);
+      gdk_draw_line (da->window,
+                     da->style->fg_gc[GTK_WIDGET_STATE(da)],
+                     at, 0, at, heigth);
+    }
+  }
+}
+
+G_MODULE_EXPORT
+gboolean on_drawingarea1_expose_event (GtkWidget *widget,
+                                       GdkEventExpose *event, 
+                                       gpointer data)
+{
+  draw_curves(widget, seq);
+  return TRUE;
+}
+
+G_MODULE_EXPORT
+void on_spinbutton_value_changed (GtkSpinButton *spinbutton,
+                                  gpointer       user_data)
+{
+  gint act, idx;
+
+  /*act = (gint)user_data;*/ /* For some strange reason, user data does not work, beside the connect signal swapped stupidity ... */
+  idx = -1;
+  for (act=0; act<NUM_ACT; act++) {
+    if (GTK_SPIN_BUTTON(spinAct[act][0]) == spinbutton) {
+      idx = 0;
+      break;
+    }
+    if (GTK_SPIN_BUTTON(spinAct[act][1]) == spinbutton) {
+      idx = 1;
+      break;
+    }
+  }
+  if (idx == -1) {
+    g_message("lookup failed");
+    return;
+  }
+
+  if (idx == 1) {
+    seq[currSeqIdx].seq.act_target[act] = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spinAct[act][1]));
+  }
+  
+  {  
+    gint start;
+    
+    start = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spinAct[act][0]));
+    if (act == ACT_DP) {
+      seq[currSeqIdx].seq.act_step[act] = (((signed int)seq[currSeqIdx].seq.act_target[act]-start)<<8)/((signed long)seq[currSeqIdx].seq.time);
+    } else {
+      seq[currSeqIdx].seq.act_step[act] = (((signed int)seq[currSeqIdx].seq.act_target[act]<<8)-(start<<8))/((signed long)seq[currSeqIdx].seq.time);
+    }
+  }
+
+  /* Update curves */
+  if (doRedraw) {
+    GtkWidget *da;
+    gint width, heigth;
+    
+    da = glade_xml_get_widget(xml, "drawingarea1");
+    gtk_widget_get_size_request(da, &width, &heigth);
+    gtk_widget_queue_draw_area (da, 0,0, width, heigth);
+  }
+}
+
+G_MODULE_EXPORT
+void on_spinbutton19_value_changed (GtkSpinButton *spinbutton,
+                                    gpointer       user_data)
+{
+  gint x;
+
+  seq[currSeqIdx].seq.time = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spinbutton))/100;
+
+  /* Update step values */
+  for (x=0; x<NUM_ACT; x++) {
+    on_spinbutton_value_changed(GTK_SPIN_BUTTON(spinAct[x][0]), NULL);
+  }
+
+  if (doRedraw) {
+    GtkWidget *da;
+    gint width, heigth;
+    
+    da = glade_xml_get_widget(xml, "drawingarea1");
+    gtk_widget_get_size_request(da, &width, &heigth);
+    gtk_widget_queue_draw_area (da, 0,0, width, heigth);
+  }
+}
+
+G_MODULE_EXPORT
+void on_spinbuttonSen_value_changed (GtkSpinButton *spinbutton,
+                                    gpointer       user_data) 
+{
+  gint s, idx;
+
+  idx = -1;
+  for (s=0; s<NUM_SENSOR; s++) {
+    if (GTK_SPIN_BUTTON(spinSensor[s][0]) == spinbutton) {
+      idx = 0; 
+      break;
+    }
+    if (GTK_SPIN_BUTTON(spinSensor[s][1]) == spinbutton) {
+      idx = 1;
+      break;
+    }
+  }  
+  if (idx == -1) {
+    g_message("lookup failed");
+    return;
+  }
+
+  if (idx == 0) {
+    seq[currSeqIdx].seq.on_sensor_min[s] = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spinbutton));
+  } else {
+    seq[currSeqIdx].seq.on_sensor_max[s] = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spinbutton));
+  }
+}
+
+G_MODULE_EXPORT
+void on_spinbuttonF_value_changed (GtkSpinButton *spinbutton,
+                                     gpointer       user_data)
+{
+  seq[currSeqIdx].seq.max_faults = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spinbutton));
+}
+
+G_MODULE_EXPORT
+void on_buttonLoad_clicked (GtkButton *button,
+                            gpointer   user_data)   
+{
+  HANDLE_WBUS wbus;
+  gint i, err;
+
+  err = wbus_open(&wbus, dev);
+  if (err != 0) {
+    g_message("Error opening wbus on index %d", dev);
+    return;
+  }
+
+  doRedraw = FALSE;
+  currSeqIdx = 0;
+  //update_spin_buttons(&seq[currSeqIdx], currSeqIdx);
+
+  for (i=0; i<HT_LAST; i++) {
+    wbus_data_set_load(wbus, &seq[i], i);
+    if (err != 0) {
+      g_message("Failed to load data set index = %d", i);
+      break;
+    }
+  }
+  wbus_close(wbus);
+
+  doRedraw = TRUE;
+  {
+    GtkWidget *da;
+    gint width, heigth;
+    
+    da = glade_xml_get_widget(xml, "drawingarea1");
+    gtk_widget_get_size_request(da, &width, &heigth);
+    gtk_widget_queue_draw_area (da, 0,0, width, heigth);
+  }
+}
+
+G_MODULE_EXPORT
+void on_buttonStore_clicked (GtkButton *button,
+                             gpointer   user_data)   
+{
+  HANDLE_WBUS wbus;
+  gint i, err;
+
+  err = wbus_open(&wbus, dev);
+  if (err != 0) {
+    g_message("Error opening wbus on index %d", dev);
+    return;
+  }
+
+  /* for (i=0; i<HT_LAST; i++) { */
+    i = currSeqIdx;
+    err = wbus_data_set_store(wbus, &seq[i], i);
+    if (err != 0) {
+      g_message("Failed to store data set index = %d", i);
+    }
+  /* } */
+  
+  wbus_close(wbus);
+}
+
+G_MODULE_EXPORT
+void on_drawingarea1_drag_begin (GtkWidget      *widget,
+                                 GdkDragContext *drag_context,
+                                 gpointer        user_data)
+{
+
+}
+
+G_MODULE_EXPORT
+void on_drawingarea1_drag_end  (GtkWidget      *widget,
+                                GdkDragContext *drag_context,
+                                gpointer        user_data)
+{
+
+}
+
+G_MODULE_EXPORT
+gboolean on_drawingarea1_button_press_event (GtkWidget      *widget,
+                                             GdkEventButton *event,
+                                             gpointer        user_data)
+{
+  gint i, x, at;
+
+  x = (gint)event->x*2;
+
+  for (at=0, i=0; i<HT_LAST; i++) {
+    if (x > at && x < (at+seq[i].seq.time)) {
+      currSeqIdx = i;
+      break;
+    }
+    at += seq[i].seq.time;
+  }
+
+  doRedraw = FALSE;
+  update_spin_buttons(&seq[currSeqIdx], currSeqIdx);
+
+  doRedraw = TRUE;
+  {
+    gint width, heigth;
+    gtk_widget_get_size_request(widget, &width, &heigth);
+    gtk_widget_queue_draw_area (widget, 0,0, width, heigth);
+  }
+
+  return TRUE;
+}
+
+G_MODULE_EXPORT
+gboolean on_drawingarea1_button_release_event (GtkWidget      *widget,
+                                               GdkEventButton *event,
+                                               gpointer        user_data)
+{
+
+  return FALSE;
+}
+
+#define GETTEXT_PACKAGE "seq-edit"
+#define LOCALEDIR "mo"
+
+static GOptionEntry entries[] = 
+{
+  { "device", 'D', 0, G_OPTION_ARG_INT, &dev, "serial port device index", "N" },
+  { NULL }
+};
+
+int
+main(int argc, char **argv)
+{
+    GtkWidget *widget;
+    GError *error;
+    GOptionContext *context;
+    gint x;
+
+    gtk_init(&argc, &argv);
+    
+    memset(seq, 0, sizeof(seq));
+
+
+    context = g_option_context_new ("- heater control sequence editor");
+    g_option_context_add_main_entries (context, entries, GETTEXT_PACKAGE);
+    g_option_context_add_group (context, gtk_get_option_group (TRUE));
+    if (!g_option_context_parse (context, &argc, &argv, &error))
+    {
+      g_message("option parsing failed: %s\n", error->message);
+      exit (1);
+    }
+
+    xml = glade_xml_new("seq_edit.glade", NULL, NULL);
+
+    widget = glade_xml_get_widget(xml, "window1");
+    if (widget == NULL) {
+      g_message("Cant find window1");
+      return -1;
+    }
+
+
+    glade_xml_signal_autoconnect(xml);
+
+    gtk_widget_show (widget);
+
+    for (x=0; x<NUM_ACT; x++) {
+      gint r, g, b;
+      
+      r = (x&1)<<15;
+      g = ((x>>1)&1)<<15;
+      b = ((x>>2)&3)<<14;
+      color[x].red = r;
+      color[x].green = g;
+      color[x].blue = b;
+      gdk_color_alloc(gtk_widget_get_colormap(widget), &color[x]);
+
+      {
+        GtkWidget *w;
+        gchar name[32];
+
+        sprintf(name, "spinbutton%d", x*2+1);
+        w = glade_xml_get_widget(xml, name);
+        if (w == NULL) {
+          g_message("widget %s not found", name);
+          continue;
+        }
+        spinAct[x][0] = w;
+        /*gtk_widget_modify_fg(sp, GTK_WIDGET_STATE(w), &color[x]);*/
+
+        sprintf(name, "spinbutton%d", x*2+2);
+        w = glade_xml_get_widget(xml, name);
+        if (w == NULL) {
+          g_message("widget %s not found", name);
+          continue;
+        }
+        spinAct[x][1] = w;
+        /*gtk_widget_modify_fg(sp, GTK_WIDGET_STATE(w), &color[x]);*/
+
+        sprintf(name, "label%d", x+1);
+        w = glade_xml_get_widget(xml, name);
+        if (w == NULL) {
+          g_message("widget %s not found", name);
+          continue;
+        }
+        gtk_widget_modify_fg(w, GTK_WIDGET_STATE(w), &color[x]);
+        /*gtk_widget_modify_fg(sp, GTK_WIDGET_STATE(w), &color[x]);*/
+      }      
+    }
+    for (x=0; x<NUM_SENSOR; x++) {
+      GtkWidget *w;
+      gchar name[32];
+
+      sprintf(name, "spinbutton%d", 20+x*2);                      
+      w = glade_xml_get_widget(xml, name);
+      if (w == NULL) {
+        g_message("widget %s not found", name);
+        continue;
+      }
+      spinSensor[x][0] = w;
+                                  
+      sprintf(name, "spinbutton%d", 20+x*2+1);
+      w = glade_xml_get_widget(xml, name);
+      if (w == NULL) {
+        g_message("widget %s not found", name);
+        continue;
+      }
+      spinSensor[x][1] = w;
+    }
+
+    timeSpin = glade_xml_get_widget(xml, "spinbutton19");
+    if (timeSpin == NULL) {
+      g_message("spinbutton19 not found");
+    }
+
+    faultSpin = glade_xml_get_widget(xml, "spinbuttonF");
+    if (timeSpin == NULL) {
+      g_message("spinbuttonF not found");
+    }
+    
+    {
+      GtkWidget *da;
+      GdkColor bgcolor = { 0, 0xffff, 0xffff, 0xffff };
+      
+      da = glade_xml_get_widget(xml, "drawingarea1");
+      gdk_color_alloc(gtk_widget_get_colormap(da), &bgcolor);
+      gtk_widget_modify_bg(da, GTK_WIDGET_STATE(da), &bgcolor);
+    }
+
+    on_buttonLoad_clicked(NULL, NULL);
+
+    gtk_main();
+
+    return 0;
+}

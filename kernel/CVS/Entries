@@ -1,0 +1,12 @@
+/machine_posix.c/1.28/Sat Dec  3 23:07:59 2011//
+/machine_win32.c/1.1/Sat Dec  3 23:07:59 2011//
+/rs232_posix.c/1.16/Sat Dec  3 23:07:59 2011//
+/rs232_win32.c/1.7/Sat Dec  3 23:07:59 2011//
+/machine.c/1.4/Mon Jan  9 23:46:38 2012//
+/machine_arm.c/1.1/Mon Jan  9 23:46:43 2012//
+/rs232.c/1.5/Tue Jan 10 00:33:34 2012//
+/rs232_arm.c/1.1/Tue Jan 10 00:45:09 2012//
+/kernel.c/1.31/Wed Oct 30 21:13:02 2013//
+/rs232_msp430.c/1.28/Wed Oct 30 21:04:15 2013//
+/machine_msp430.c/1.117/Wed Nov 13 19:52:08 2013//
+D

@@ -1,0 +1,1 @@
+cmd_/home/mjander/source/libwbus/util/serial_loop/serial_loop.ko := ld -r -m elf_i386 -T /home/mjander/source/linux-3.8.4/scripts/module-common.lds --build-id  -o /home/mjander/source/libwbus/util/serial_loop/serial_loop.ko /home/mjander/source/libwbus/util/serial_loop/serial_loop.o /home/mjander/source/libwbus/util/serial_loop/serial_loop.mod.o
