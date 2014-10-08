@@ -79,6 +79,10 @@ HANDLE_TIMER machine_timer_create(int ival, timer_func func, void *data);
  * Stop and free a given timer
  */
 void machine_timer_destroy(HANDLE_TIMER);
+/*
+ * Change interval of timer
+ */
+void machine_timer_reset(HANDLE_TIMER hTimer, int ival);
 
 void machine_beep(void);
 void machine_led_set(int s);
@@ -123,6 +127,7 @@ void machine_lcd(int enable);
 
 /* Avoid using this macros with variables; division is slow. */
 #define MSEC2JIFFIES(x) ((JFREQ*(long)(x))/1000)
+#define USEC2JIFFIES(x) ((JFREQ*(long)(x))/1000000)
 #define MSEC2TIMER(x) ((TFREQ*(long)(x))/1000)
 unsigned int machine_getJiffies(void);
 

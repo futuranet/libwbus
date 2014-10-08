@@ -30,7 +30,7 @@
 #define __MSP430_449__
 #endif
 
-#if defined(__MSP430_449__)
+#if defined(EGG_HW)
 #define KERNEL_STACK_SIZE (96*KERNEL_MAX_TASK)
 #else
 #define KERNEL_STACK_SIZE (64*KERNEL_MAX_TASK) 

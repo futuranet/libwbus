@@ -246,6 +246,15 @@ int gsmctl_open(HANDLE_GSMCTL *phgsmctl, int dev)
     *hgsmctl->allowedNumbers[err] = 0;
   }
 
+#if defined(__MSP430_169__) || defined(__MSP430_1611__) || defined(__MSP430_149__)
+  /* Init Telit GSM modem */
+  P6OUT |= BIT2;
+  machine_sleep(1);
+  P6OUT |= BIT4;
+  machine_sleep(1);
+  P6OUT &= ~BIT4;
+#endif
+
   err = rs232_open(&hgsmctl->rs232, dev, GSM_BAUDRATE, RS232_FMT_8N1);
   if (err != 0) {
     goto bail;

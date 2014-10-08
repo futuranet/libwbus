@@ -180,13 +180,8 @@ const mstate_t menu[4] =
   { menu_gsm, MENU_NAV | MENU_END, "GSM" },
 };
 
-#if defined(__MSP430_449__)
 #define WBUS_DEV 1
 #define GSM_DEV 0
-#else
-#define WBUS_DEV 0
-#define GSM_DEV 1
-#endif
 
 /*  libwbus data */
 
@@ -716,6 +711,8 @@ TASK_FUNC(openegg_thread)
 {
   int active = ACTIVE_TIMEOUT*50;
 
+  openegg_menu_init();
+
   while ( 1 ) {
     if ( machine_stayAwake() || machine_buttons(0) || fHeaterOn) {
       /* keep active > 0 but without disturbing the display delay below. */
@@ -757,8 +754,6 @@ TASK_FUNC(openegg_gsmctl_thread)
 void main(void)
 {
   kernel_init();
-
-  openegg_menu_init();
 
   memcpy(&settings, &fsettings, sizeof(settings_t));
     

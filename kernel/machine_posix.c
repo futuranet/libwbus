@@ -74,6 +74,11 @@ void machine_timer_destroy(HANDLE_TIMER hTimer)
   timer->enabled = 0;
 }
 
+void machine_timer_reset(HANDLE_TIMER hTimer, int ival)
+{
+  hTimer->reload = ival;
+}
+
 
 static rtc_time_t rtc_now, rtc_alarm;
 static rtc_alarm_callback rtc_alarm_cb;

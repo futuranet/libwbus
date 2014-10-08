@@ -19,6 +19,20 @@ endif
 
 CFLAGS = -DPSENSOR=$(PSENSOR) -DCAF_TYPE=$(CAF) -DNOZZLE=$(NOZZLE)
 
+# Differentiate between egg or poeli type hardware.
+ifeq "$(VARIANT)" ""
+	VARIANT=poeli # egg
+	$(warning Assuming VARIANT=$(VARIANT))
+endif
+
+ifeq "$(VARIANT)" "egg"
+	CFLAGS += -DEGG_HW
+	PROGRAMS = $(BINDIR)/openegg$(EXE_SUFFIX)
+else
+	CFLAGS += -DPOELI_HW
+	PROGRAMS = $(BINDIR)/poeli$(EXE_SUFFIX) $(BINDIR)/ph$(EXE_SUFFIX)
+endif
+
 #CFLAGS += -g -O2 -finline-functions -Wall -Iinclude -Isrc
 ifeq "$(DEBUG)" ""
 CFLAGS += -O2 -Wall -Iinclude -Isrc
@@ -40,9 +54,8 @@ LDFLAGS_seq_edit = $(shell pkg-config --libs libglade-2.0) -Wl,--export-dynamic
 CFLAGS_htsim = $(shell pkg-config --cflags glib-2.0)
 LDFLAGS_htsim = $(shell pkg-config --libs glib-2.0)
 LDFLAGS += -lpthread -lc
-PROGRAMS = $(BINDIR)/wbtool$(EXE_SUFFIX) $(BINDIR)/wbsim$(EXE_SUFFIX) $(BINDIR)/htsim$(EXE_SUFFIX) util/htsim_gui$(EXE_SUFFIX) util/seq_edit$(EXE_SUFFIX)
+PROGRAMS += $(BINDIR)/wbtool$(EXE_SUFFIX) $(BINDIR)/wbsim$(EXE_SUFFIX) $(BINDIR)/htsim$(EXE_SUFFIX) util/htsim_gui$(EXE_SUFFIX) util/seq_edit$(EXE_SUFFIX)
 EXE_SUFFIX=
-IO_OBJECTS=$(OBJDIR)/wbus.o #$(OBJDIR)/iso.o
 endif
 
 # MSP430 uC
@@ -53,12 +66,7 @@ CFLAGS += -g -mmcu=$(ARCH) -I./include -ffunction-sections -fdata-sections
 LDFLAGS = -g -mmcu=$(ARCH) -Wl,--section-start -Wl,.flashrw=0xf400 -Wl,--gc-sections -lc
 AR=msp430-ar
 RANLIB=msp430-ranlib
-PROGRAMS = $(BINDIR)/openegg$(EXE_SUFFIX)
-ifeq "$(findstring 449,$(ARCH))" ""
- PROGRAMS += $(BINDIR)/poeli$(EXE_SUFFIX) $(BINDIR)/ph$(EXE_SUFFIX)
-endif
 EXE_SUFFIX=
-IO_OBJECTS=$(OBJDIR)/wbus.o
 endif
 
 # MingW (Windows)
@@ -70,8 +78,7 @@ LDFLAGS = -g -lwinmm -lws2_32
 AR=$(ARCH)-ar
 RANLIB=$(ARCH)-ranlib
 EXE_SUFFIX=.exe
-PROGRAMS = $(BINDIR)/wbtool$(EXE_SUFFIX) $(BINDIR)/wbsim$(EXE_SUFFIX)
-IO_OBJECTS=$(OBJDIR)/wbus.o #$(OBJDIR)/iso.o
+PROGRAMS += $(BINDIR)/wbtool$(EXE_SUFFIX) $(BINDIR)/wbsim$(EXE_SUFFIX)
 endif
 
 # ARM
@@ -83,8 +90,7 @@ LDFLAGS = -g
 AR=$(ARCH)-ar
 RANLIB=$(ARCH)-ranlib
 EXE_SUFFIX=
-PROGRAMS = $(BINDIR)/poeli$(EXE_SUFFIX) $(BINDIR)/ph$(EXE_SUFFIX) $(BINDIR)/wbsim$(EXE_SUFFIX)
-IO_OBJECTS=$(OBJDIR)/wbus.o
+PROGRAMS += $(BINDIR)/wbsim$(EXE_SUFFIX)
 endif
 
 # Other uC
@@ -93,9 +99,9 @@ $(error not yet implemented. Come on, do it ! Its not that hard !)
 
 endif
 
-OBJDIR = ./obj$(ARCH)
-BINDIR = ./bin$(ARCH)
-LIBDIR = ./lib$(ARCH)
+OBJDIR = ./obj$(ARCH)$(VARIANT)
+BINDIR = ./bin$(ARCH)$(VARIANT)
+LIBDIR = ./lib$(ARCH)$(VARIANT)
 
 
 all: dirs $(PROGRAMS)
@@ -111,10 +117,11 @@ $(OBJDIR)/openegg_ui.o: ./openegg/openegg_ui_posix.c ./openegg/openegg_ui_msp430
 $(OBJDIR)/openegg.o: ./include/machine.h ./include/kernel.h
 $(OBJDIR)/rs232.o: ./kernel/rs232_posix.c ./kernel/rs232_msp430.c ./kernel/rs232_win32.c ./include/rs232.h ./include/kernel.h
 $(OBJDIR)/machine.o: ./kernel/machine_posix.c ./kernel/machine_msp430.c ./kernel/machine_win32.c ./include/machine.h ./include/kernel.h
+$(OBJDIR)/poeli_ctrl.o: ./include/poeli_ctrl.h ./include/machine.h ./include/kernel.h
 $(OBJDIR)/wbus.o: ./include/rs232.h ./include/wbus.h ./wbus/wbus_const.h ./include/kernel.h
 $(OBJDIR)/wbus_server.o: ./include/rs232.h ./include/wbus.h ./wbus/wbus_const.h ./include/kernel.h
 $(OBJDIR)/iso.o: ./include/iso.h ./include/kernel.h ./include/rs232.h
-$(OBJDIR)/poeli.o: ./include/wbus_server.h
+$(OBJDIR)/poeli.o: ./include/wbus_server.h ./include/poeli_ctrl.h ./include/machine.h
 
 $(OBJDIR)/htsim.o: htsim.c
 	$(CC) -c $(CFLAGS) $(CFLAGS_htsim) -o $@ $<
@@ -134,7 +141,7 @@ $(BINDIR)/openegg$(EXE_SUFFIX): $(OBJDIR)/openegg.o $(OBJDIR)/wbus.o $(LIBDIR)/l
 $(BINDIR)/htsim$(EXE_SUFFIX): $(OBJDIR)/htsim.o $(OBJDIR)/wbus.o $(OBJDIR)/wbus_server.o $(LIBDIR)/libkernel.a
 	$(CC) $(LDFLAGS_htsim) -o $@ $^ $(LDFLAGS)
 
-$(BINDIR)/poeli$(EXE_SUFFIX): $(OBJDIR)/poeli.o $(OBJDIR)/wbus.o $(OBJDIR)/wbus_server.o $(LIBDIR)/libkernel.a
+$(BINDIR)/poeli$(EXE_SUFFIX): $(OBJDIR)/poeli.o $(OBJDIR)/wbus.o $(OBJDIR)/wbus_server.o $(OBJDIR)/poeli_ctrl.o $(LIBDIR)/libkernel.a
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 $(BINDIR)/wbtool$(EXE_SUFFIX): $(OBJDIR)/wbtool.o $(OBJDIR)/wbus.o $(LIBDIR)/libkernel.a

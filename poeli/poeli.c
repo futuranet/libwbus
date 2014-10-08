@@ -4,6 +4,7 @@
 
 #include "kernel.h"
 #include "machine.h"
+#include "poeli_ctrl.h"
 #include "wbus.h"
 #include "wbus_server.h"
 #include <stdio.h>
@@ -86,7 +87,7 @@ TASK_FUNC(poeli_read_sensors)
     
     maybeSensorsUpdated = adc_is_uptodate();
 
-    adc_read(heater_state.volatile_data.sensor, 9);
+    poeli_ctrl_read(heater_state.volatile_data.sensor, 9);
 
     sleept = MSEC2JIFFIES(100);
 
@@ -231,7 +232,7 @@ void poeli_heater_iterate(heater_state_t *h)
             machine_ack(0);
             /* Record the error */
             wbus_error_add(h, sensor_code[i], i, wbdata+128);
-            PRINTF("fault mask &d\n", seq->seq.fault_mask);
+            PRINTF("fault mask %d\n", seq->seq.fault_mask);
           }
 
           stateChanged = poeli_heater_switch_status(h, next_status);
@@ -420,11 +421,12 @@ void main(void)
   gfActive=1;
   gSensorsUpdated=0;
   kernel_init();
-  
+  poeli_ctrl_init();
+
   wbus_server_init(&heater_state);
 
   PRINTF("size of seq_data.heater_seq = %d\n", sizeof(seq_data));
-  
+
   kernel_task_register(poeli_read_sensors, KERNEL_STACK_SIZE/3);
   kernel_task_register(poeli_heater_ctrl, KERNEL_STACK_SIZE/3);
   kernel_task_register(poeli_listen_wbus, KERNEL_STACK_SIZE/3);
