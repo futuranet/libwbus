@@ -183,7 +183,7 @@ int rs232_open(HANDLE_RS232 *pRs232, unsigned char dev_idx, long baudrate, unsig
 {
   HANDLE_RS232 rs232 = NULL;
   unsigned char uctl = 0;
-  unsigned int ubr1, ubr0, mctl;
+  unsigned char ubr1, ubr0, mctl;
  
   switch (format) {
     case RS232_FMT_8N1:

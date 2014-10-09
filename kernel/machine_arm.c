@@ -266,11 +266,6 @@ unsigned int machine_buttons(int do_read)
 	return 0;
 }            
 
-void machine_lcd(int enable)
-{
-  
-}
-
 int adc_read_single(int c)
 {
 }

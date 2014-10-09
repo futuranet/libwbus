@@ -411,16 +411,6 @@ static void machine_init_io(void)
   P6DIR = 0;
   P6OUT = 0;
 
-  /* Clear LCD Display */
-  for (i=0; i<20; i++) {
-    LCDMEM[i]=0;
-  }
-
-  LCDCTL = LCDON + LCD4MUX + LCDP0 + LCDP1 + LCDP2;       /* LCD 4Mux, S0-S39 */
-  BTCTL = BTSSEL | BT_fCLK2_DIV2 | BT_fLCD_DIV64 | BTDIV; /* LCD freq ACLK/64 */
-                                                          /* IRQ freq ACLK/256/2 */
-  P5SEL = 0xFC;
-
   /* Enable basic timer interrupt */
   IE2 |= BTIE;
   
@@ -716,25 +706,6 @@ unsigned int machine_buttons(int do_read)
   return (P3IN>>4)^0x0f;
 }
 
-static int backlight_was_on=0;
-
-void machine_lcd(int enable)
-{
-  /* Enable or disable the LCD display only once to avoid the backlight from toggling. */
-  if (enable) {
-    if ( (LCDCTL & LCDON) == 0 ) {
-      LCDCTL |= LCDON;
-      machine_backlight_set(backlight_was_on);
-    }
-  } else {
-    if ( LCDCTL & LCDON ) {
-      LCDCTL &= ~LCDON;
-      backlight_was_on = machine_backlight_get();
-      machine_backlight_set(0);
-    }
-  }
-}
-
 void machine_led_set(int s)
 {
   if (s)
@@ -754,8 +725,6 @@ unsigned int machine_buttons(int do_read)
   return (P3IN & 0x0f)^0x0f;
 }
 
-static unsigned char backlight_was_on=0, lcd_is_on = 0;
-
 int machine_backlight_get(void)
 {
   return (P6OUT & BIT3) ? 1 : 0;
@@ -765,26 +734,8 @@ void machine_backlight_set(int en)
 {
   if (en) {
     P6OUT |= BIT3;
-    backlight_was_on=1;
   } else {
     P6OUT &= ~BIT3;
-    backlight_was_on=0;
-  }
-}
-
-void machine_lcd(int enable)
-{
-  /* Enable or disable the LCD display only once to avoid the backlight from toggling. */
-  if (enable) {
-    if ( lcd_is_on == 0 ) {
-      lcd_is_on = 1;
-      machine_backlight_set(backlight_was_on);
-    }
-  } else {
-    if ( lcd_is_on ) {
-      lcd_is_on = 0;
-      machine_backlight_set(0);
-    }
   }
 }
 

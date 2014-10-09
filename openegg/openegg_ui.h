@@ -59,7 +59,14 @@ typedef struct
 
 #define OLIMEX		0x80
 
+/*
+ * Initialize display an turn on
+ */
 void openegg_ui_display_init(void);
+/*
+ * Turn off display
+ */
+void openegg_ui_display_off(void);
 
 /*
  * Display 2 strings (assumming not very big LCD display. May change,

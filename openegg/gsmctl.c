@@ -5,9 +5,14 @@
 #include "gsmctl.h"
 #include "rs232.h"
 #include "machine.h"
+#include "kernel.h"
 #include <string.h>
 
+#ifdef __MSP430_449__
 #define GSM_BAUDRATE 19200
+#else
+#define GSM_BAUDRATE 9600
+#endif
 
 #define GSMCTL_ADDNUMBER 1
 #define GSMCTL_GOTNUMBER 2
@@ -249,9 +254,11 @@ int gsmctl_open(HANDLE_GSMCTL *phgsmctl, int dev)
 #if defined(__MSP430_169__) || defined(__MSP430_1611__) || defined(__MSP430_149__)
   /* Init Telit GSM modem */
   P6OUT |= BIT2;
-  machine_sleep(1);
+  kernel_sleep(MSEC2JIFFIES(1000));
+  kernel_yield();
   P6OUT |= BIT4;
-  machine_sleep(1);
+  kernel_sleep(MSEC2JIFFIES(1000));
+  kernel_yield();
   P6OUT &= ~BIT4;
 #endif
 

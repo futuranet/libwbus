@@ -89,7 +89,6 @@ void machine_led_set(int s);
 int machine_backlight_get(void);
 void machine_backlight_set(int en);
 unsigned int machine_buttons(int do_read);
-void machine_lcd(int enable);
 
 /* Jiffies clocked at 16384 Hz */
 #if defined(__MSP430_169__) || defined(__MSP430_149__) || defined(__MSP430_1611__)

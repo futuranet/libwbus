@@ -718,7 +718,7 @@ TASK_FUNC(openegg_thread)
       /* keep active > 0 but without disturbing the display delay below. */
       if ( (active & 7) == 0) {
         active = ACTIVE_TIMEOUT*50;
-        machine_lcd(1);
+        openegg_ui_display_init();
       }
     }
 
@@ -727,7 +727,7 @@ TASK_FUNC(openegg_thread)
       openegg_update_sym();
       active--;
       if (active == 0) {
-        machine_lcd(0);
+        openegg_ui_display_off();
       } else {
         if ( (active & 7) == 0 ) {
           openegg_ui_update();
