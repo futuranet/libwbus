@@ -741,11 +741,18 @@ TASK_FUNC(openegg_thread)
 
 TASK_FUNC(openegg_gsmctl_thread)
 {
+  int i = 20;
+
   gsmctl_open(&hgsmctl, GSM_DEV);
   gsmctl_registerCallback(hgsmctl, turn_on_heater_gsm, NULL);
 
   while (1) {
     gsmctl_thread(hgsmctl);
+    i--;
+    if (i < 0) {
+      gsmctl_gettime(hgsmctl, &openegg_time);
+      i = 3600;
+    }
     kernel_sleep(MSEC2JIFFIES(1000));
     kernel_yield();
   }

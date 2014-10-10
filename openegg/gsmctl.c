@@ -11,7 +11,8 @@
 #ifdef __MSP430_449__
 #define GSM_BAUDRATE 19200
 #else
-#define GSM_BAUDRATE 9600
+/* As recommended here: http://e2e.ti.com/support/microcontrollers/msp430/f/166/t/90913.aspx */
+#define GSM_BAUDRATE 4800
 #endif
 
 #define GSMCTL_ADDNUMBER 1
@@ -45,25 +46,74 @@ static char tmp[32];
 static int gsmctl_atio(HANDLE_GSMCTL hgsmctl, char *cmd, char *result)
 {
   int bytes;
-  
-  rs232_write(hgsmctl->rs232, (unsigned char*)cmd, strlen(cmd));
-  rs232_read(hgsmctl->rs232, (unsigned char*)tmp, strlen(cmd));
-  
+
+  bytes = strlen(cmd);
+  rs232_flush(hgsmctl->rs232);  
+  rs232_write(hgsmctl->rs232, (unsigned char*)cmd, bytes);
+  /* Skip echo */
+  rs232_read(hgsmctl->rs232, (unsigned char*)result, bytes);
+  /* Read result data */
   bytes = rs232_read(hgsmctl->rs232, (unsigned char*)result, 32);
 
-  if (bytes == 32) {  
-    rs232_flush(hgsmctl->rs232);
-  } 
+  if (strstr(tmp, "OK") == NULL) {
+    return -1;
+  }
   
   return bytes;
 }
 
 
 static
-void gsmctl_init(HANDLE_GSMCTL hgsmctl)
+int gsmctl_init(HANDLE_GSMCTL hgsmctl)
 {
-  gsmctl_atio(hgsmctl, "atz\r", tmp);  
-  gsmctl_atio(hgsmctl, "at+clip=1\r", tmp);
+  int bytes;
+
+  bytes = gsmctl_atio(hgsmctl, "atz\r", tmp);
+  if (bytes < 0) {
+    return -1;
+  }
+  bytes = gsmctl_atio(hgsmctl, "at+clip=1\r", tmp);
+  if (bytes < 0) {
+    return -2;
+  }
+  bytes = gsmctl_atio(hgsmctl, "at+ctzu=1\r", tmp);
+  if (bytes < 0) {
+    return -3;
+  }
+  return 0;
+}
+
+int gsmctl_gettime(HANDLE_GSMCTL hgsmctl, rtc_time_t *time)
+{
+  int bytes;
+  char *ptr;
+
+  bytes = gsmctl_atio(hgsmctl, "at+cclk?\r", tmp);
+
+  /* yy/MM/dd,hh:mm:ss±zz */
+  /* #CCLK: “02/09/07,22:30:25+04,1” */
+  ptr = tmp;
+  while (ptr < &tmp[bytes]) {
+    if (*ptr++ == '"') break;
+  }
+  if (ptr[0] != '"') {
+    return -1;
+  }
+  bytes = bytes - (ptr-tmp);
+  memcpy(tmp, ptr, bytes);
+  rs232_read(hgsmctl->rs232, (unsigned char*)tmp+bytes, 32-bytes);
+  if (ptr[3] != '/' && ptr[6] != '/' && ptr[9] != ',' ) {
+    return -1;
+  }
+  time->seconds = (ptr[16]-'0')*10 + (ptr[17]-'0');
+  time->minutes = (ptr[13]-'0')*10 + (ptr[14]-'0');
+  time->hours = (ptr[10]-'0')*10 + (ptr[11]-'0');
+#ifdef USE_CALENDAR
+  time->day = (ptr[7]-'0')*10 + (ptr[8]-'0');
+  time->month = (ptr[4]-'0')*10 + (ptr[5]-'0');
+  time->year = (ptr[1]-'0')*10 + (ptr[2]-'0');
+#endif
+  return 0;
 }
 
 /*

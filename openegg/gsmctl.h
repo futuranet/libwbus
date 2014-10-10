@@ -1,9 +1,18 @@
 /*
  * GSM control module
  */
+
+#include "machine.h"
+
 typedef struct gsmctl *HANDLE_GSMCTL;
 
 typedef void (*gsmcallback)(HANDLE_GSMCTL hgsmctl, void *data);
+
+/*
+ * Get time from GSM network
+ * \return 0 on success, nonzero means failure. 
+ */
+int gsmctl_gettime(HANDLE_GSMCTL hgsmctl, rtc_time_t *time);
 
 /*
  * Get one of the allowd phone numbers by index (start at 0).
