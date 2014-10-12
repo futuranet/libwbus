@@ -25,10 +25,12 @@ typedef enum {
   MENU_MONITOR_T2,
   MENU_MONITOR_P0,
   MENU_MONITOR_P1,
-	
+
+  MENU_GSM_STATUS,
   MENU_GSM_ADD,
   MENU_GSM_REMOVE,
   MENU_GSM_SAVE,
+  MENU_GSM_NITZ,
 
   MENU_TIMER_SELECT,
   MENU_TIMER_SETALARM0,
@@ -92,11 +94,13 @@ const mstate_t menu_monitor[6] =
   { menu, MENU_NAV | MENU_END, "<---"}
 };
 
-const mstate_t menu_gsm[4] =
+const mstate_t menu_gsm[6] =
 {
+  { NULL, MENU_GSM_STATUS, "GSM status" },
   { NULL, MENU_GSM_ADD, "Neue Nummer" },
   { NULL, MENU_GSM_SAVE, "Speichern" },
   { NULL, MENU_GSM_REMOVE | MENU_ITER, "Entfernen" },
+  { NULL, MENU_GSM_NITZ | MENU_ITER, "NITZ" },
   { menu, MENU_NAV | MENU_END, "<---"}
 };
 
@@ -197,10 +201,10 @@ static int wbus_task;
 
 /* Heater/Vent time in Minutes */
 typedef struct {
+  rtc_time_t alarm[3];
   signed char heatTime;
   unsigned char heaterMode;
-  rtc_time_t alarm[3];
-  //unsigned char padding[117];
+  unsigned char gsmUseNitz;
 } settings_t;
 
 static settings_t settings;
@@ -208,9 +212,10 @@ static settings_t settings;
 __attribute__ ((section (".flashrw")))
 settings_t fsettings = 
 {
+  { { 0, 0, 7 },{ 0, 0, 12 },{ 0, 0, 19 } },
   20,
   WBUS_PH,
-  { { 0, 0, 7 },{ 0, 0, 12 },{ 0, 0, 19 } },
+  1
 };
 
 static rtc_time_t *ptime;
@@ -433,6 +438,10 @@ static void openegg_do(int cmd, int *pflags, char *text, char *digits)
       flags |= DISP_DIGITS;
       break;      
 
+    case MENU_GSM_STATUS:
+      gsmctl_getStatus(hgsmctl, text);
+      flags |= DISP_TEXT;
+      break;
     case MENU_GSM_ADD:
       if ( (flags & CMD_STICKY) == 0) {
         gsmctl_addNumber(hgsmctl);
@@ -443,10 +452,12 @@ static void openegg_do(int cmd, int *pflags, char *text, char *digits)
           flags |= DISP_TEXT;
           flags &= ~CMD_STICKY;
         }
-        //if (flags & ITER_ACK) {
-        //  gsmctl_addNumberCancel(hgsmctl);
-        //  flags &= ~CMD_STICKY;
-        //}
+        if (flags & ITER_ACK) {
+          gsmctl_addNumberCancel(hgsmctl);
+          flags &= ~CMD_STICKY;
+          strcpy(text, "Abgebrochen");
+          flags |= DISP_TEXT;
+        }
       }
       break;
     case MENU_GSM_REMOVE:
@@ -472,6 +483,25 @@ static void openegg_do(int cmd, int *pflags, char *text, char *digits)
     case MENU_GSM_SAVE:
       flags &= ~CMD_STICKY;
       gsmctl_saveNumbers(hgsmctl);
+      break;
+    case MENU_GSM_NITZ:
+      flags &= ~CMD_STICKY;
+      if (flags & ITER_ACK) {
+        settings.gsmUseNitz = icnt;
+        flash_write(&fsettings, &settings, sizeof(settings_t));
+      }
+      if (flags & ITER_START) {
+        icnt = settings.gsmUseNitz;
+      }
+      if (icnt > 1) {
+        icnt = 0;
+      }
+      if (icnt == 0) {
+        strcpy(text, "NITZ aus");
+      } else {
+        strcpy(text, "NITZ ein");
+      }
+      flags |= DISP_TEXT;
       break;
 
     /* Heater commands */    
@@ -638,6 +668,8 @@ bail:
 
 TASK_FUNC(openegg_wbus_thread)
 {
+  int timeOut = 0;
+
   while (1) {
     if (fHeaterOn != 0)
     {
@@ -649,16 +681,19 @@ TASK_FUNC(openegg_wbus_thread)
       {
         if (fHeaterOn == 2) {
           error = wbus_check(wb, heaterMode);
-          if (error) {
+          timeOut--;
+          if (error || timeOut < 0) {
             turn_off_heater();
           }
         } 
         if (fHeaterOn == 1) {
           error = wbus_turnOn(wb, heaterMode, settings.heatTime);
-          if (error)
+          if (error) {
             turn_off_heater();
-          else
+          } else {
             fHeaterOn = 2;
+            timeOut = (int)settings.heatTime * 4; /* convert minutes to 15 sec interval */
+          }
         }
         if (fHeaterOn < 0) {
           error = wbus_turnOff(wb);
@@ -714,7 +749,16 @@ TASK_FUNC(openegg_thread)
   openegg_menu_init();
 
   while ( 1 ) {
-    if ( machine_stayAwake() || machine_buttons(0) || fHeaterOn) {
+    if ( machine_stayAwake() || machine_buttons(0) || fHeaterOn)
+    {
+      /* In case active mode is triggered by buttons,
+         wait until these are released again. */
+      if (active == 0) {
+        while (machine_buttons(0)) {
+          kernel_sleep(MSEC2JIFFIES(20));
+          kernel_yield();    
+        }
+      }
       /* keep active > 0 but without disturbing the display delay below. */
       if ( (active & 7) == 0) {
         active = ACTIVE_TIMEOUT*50;
@@ -748,10 +792,19 @@ TASK_FUNC(openegg_gsmctl_thread)
 
   while (1) {
     gsmctl_thread(hgsmctl);
-    i--;
-    if (i < 0) {
-      gsmctl_gettime(hgsmctl, &openegg_time);
-      i = 3600;
+    
+    if (settings.gsmUseNitz)
+    {
+      i--;
+      if (i < 0) {
+        i = gsmctl_getTime(hgsmctl, &openegg_time);
+        if (i == 0) {
+          rtc_setclock(&openegg_time);
+          i = 3600;
+        } else {
+          i = 20;
+        }
+      }
     }
     kernel_sleep(MSEC2JIFFIES(1000));
     kernel_yield();

@@ -13,10 +13,15 @@
 #else
 /* As recommended here: http://e2e.ti.com/support/microcontrollers/msp430/f/166/t/90913.aspx */
 #define GSM_BAUDRATE 4800
+#define GSMCTL_TELIT
 #endif
 
-#define GSMCTL_ADDNUMBER 1
-#define GSMCTL_GOTNUMBER 2
+#define GSMCTL_ADDNUMBER   1 /* The next +CLIP message is registered as an allowed number */
+#define GSMCTL_GOTNUMBER   2 /* A phone number was captured after GSMCTL_ADDNUMBER was set */
+#define GSMCTL_POWERON     4 /* GSM modem is assumed to be powered on upon AT command test */
+#define GSMCTL_REGISTERED  8 /* GSM modem reported to be registered to a network */
+#define GSMCTL_ROAMING    16 /* GSM modem uses roaming */
+#define GSMCTL_DENIED     32 /* GSM modem network registration was denied */
 
 #define MAX_PHONE_NUMBERS 4
 
@@ -38,7 +43,7 @@ const char fNumbers[MAX_PHONE_NUMBERS][32] =
 };
 
 
-static char tmp[32];
+static char tmp[32+1];
 
 /*
  * Send AT command and get result.
@@ -50,58 +55,131 @@ static int gsmctl_atio(HANDLE_GSMCTL hgsmctl, char *cmd, char *result)
   bytes = strlen(cmd);
   rs232_flush(hgsmctl->rs232);  
   rs232_write(hgsmctl->rs232, (unsigned char*)cmd, bytes);
-  /* Skip echo */
+  /* Give AT command enough time */
+  kernel_sleep(MSEC2JIFFIES(100));
+  kernel_yield();      
+  /* Skip command echo */
   rs232_read(hgsmctl->rs232, (unsigned char*)result, bytes);
   /* Read result data */
   bytes = rs232_read(hgsmctl->rs232, (unsigned char*)result, 32);
 
-  if (strstr(tmp, "OK") == NULL) {
+  /* Null terminate result */
+  result[bytes] = 0;
+
+  if (strstr(result, "OK") == NULL || bytes == 0) {
     return -1;
   }
-  
+
   return bytes;
 }
 
-
+/*
+ * Check GSM modem status.
+ */
 static
 int gsmctl_init(HANDLE_GSMCTL hgsmctl)
 {
   int bytes;
 
+#ifdef GSMCTL_TELIT
+  if ( (hgsmctl->flags & GSMCTL_POWERON) == 0 )
+  {
+    /* Init Telit GSM modem */
+    if ((P6OUT & BIT2) == 0) {
+      P6OUT |= BIT2; /* Enable L5973 */
+      kernel_sleep(MSEC2JIFFIES(1000));
+      kernel_yield();
+      bytes = -1; /* Because L5973 was off, force GSM_ON_OFF toggle */
+    } else {
+      /* Test if modem is already on to skip GSM_ON_OFF toggle. */
+      bytes = gsmctl_atio(hgsmctl, "atz\r", tmp);
+    }
+    if (bytes < 0)
+    {
+      P6OUT |= BIT4; /* Toggle GSM_ON_OFF */
+      kernel_sleep(MSEC2JIFFIES(1000));
+      kernel_yield();
+      P6OUT &= ~BIT4;
+      /* Wait until modem power up */
+      kernel_sleep(MSEC2JIFFIES(1000));
+      kernel_yield();
+    }
+  }
+#endif
+ 
   bytes = gsmctl_atio(hgsmctl, "atz\r", tmp);
   if (bytes < 0) {
-    return -1;
-  }
+    goto bail;
+  }  
   bytes = gsmctl_atio(hgsmctl, "at+clip=1\r", tmp);
   if (bytes < 0) {
+    goto bail;
+  }
+  hgsmctl->flags |= GSMCTL_POWERON;
+
+#ifdef GSMCTL_TELIT
+  bytes = gsmctl_atio(hgsmctl, "at#nitz=1,0\r", tmp);
+  if (bytes < 0) {
+    goto bail;
+  }
+#endif
+
+  /* Check GSM network registration */
+  bytes = gsmctl_atio(hgsmctl, "at+creg?\r", tmp);
+  if (bytes < 0) {
+    hgsmctl->flags &= ~(GSMCTL_REGISTERED|GSMCTL_ROAMING);
+  } else {
+    char *ptr;
+    /* Check status to be either 1 (home network) or 5 (roaming) */
+    /* \r\n+CREG: 0,1\r\n\r\nOK\r\n */
+    ptr = strstr(tmp, "0,");
+    if (ptr != NULL) {
+      if (ptr[2] == '1') { 
+        hgsmctl->flags &= ~GSMCTL_DENIED;
+        hgsmctl->flags |= GSMCTL_REGISTERED;
+      }
+      if (ptr[2] == '5') {
+        hgsmctl->flags &= ~GSMCTL_DENIED;
+        hgsmctl->flags |= GSMCTL_REGISTERED|GSMCTL_ROAMING;
+      }
+      if (ptr[2] == '3') {
+        hgsmctl->flags |= GSMCTL_DENIED;
+        hgsmctl->flags &= ~(GSMCTL_REGISTERED|GSMCTL_ROAMING);
+      }
+    } else {
+      hgsmctl->flags &= ~(GSMCTL_REGISTERED|GSMCTL_ROAMING|GSMCTL_DENIED);
+    }
+  }
+
+  if ((hgsmctl->flags & GSMCTL_REGISTERED) == 0) {
     return -2;
   }
-  bytes = gsmctl_atio(hgsmctl, "at+ctzu=1\r", tmp);
-  if (bytes < 0) {
-    return -3;
-  }
+
   return 0;
+
+bail:
+  hgsmctl->flags &= ~(GSMCTL_POWERON|GSMCTL_REGISTERED|GSMCTL_ROAMING|GSMCTL_DENIED);
+
+  return -1;
 }
 
-int gsmctl_gettime(HANDLE_GSMCTL hgsmctl, rtc_time_t *time)
+int gsmctl_getTime(HANDLE_GSMCTL hgsmctl, rtc_time_t *time)
 {
-  int bytes;
   char *ptr;
 
-  bytes = gsmctl_atio(hgsmctl, "at+cclk?\r", tmp);
-
-  /* yy/MM/dd,hh:mm:ss±zz */
-  /* #CCLK: “02/09/07,22:30:25+04,1” */
-  ptr = tmp;
-  while (ptr < &tmp[bytes]) {
-    if (*ptr++ == '"') break;
-  }
-  if (ptr[0] != '"') {
+  if (hgsmctl->flags & GSMCTL_ADDNUMBER) {
     return -1;
   }
-  bytes = bytes - (ptr-tmp);
-  memcpy(tmp, ptr, bytes);
-  rs232_read(hgsmctl->rs232, (unsigned char*)tmp+bytes, 32-bytes);
+
+  /* Ignore return value because cclk? result does not contain OK */
+  gsmctl_atio(hgsmctl, "at+cclk?\r", tmp);
+
+  /* yy/MM/dd,hh:mm:ss±zz */
+  /* \r\n+CCLK: \"14/10/12,21:08:40\"\r\n\r\n */
+  ptr = strstr(tmp, "\"");
+  if (ptr == NULL) {
+    return -1;
+  }
   if (ptr[3] != '/' && ptr[6] != '/' && ptr[9] != ',' ) {
     return -1;
   }
@@ -114,6 +192,27 @@ int gsmctl_gettime(HANDLE_GSMCTL hgsmctl, rtc_time_t *time)
   time->year = (ptr[1]-'0')*10 + (ptr[2]-'0');
 #endif
   return 0;
+}
+
+void gsmctl_getStatus(HANDLE_GSMCTL hgsmctl, char *stext)
+{
+  switch (hgsmctl->flags & (GSMCTL_POWERON|GSMCTL_REGISTERED|GSMCTL_ROAMING|GSMCTL_DENIED)) {
+    case 0:
+      strcpy(stext, "Off");
+      break;
+    case GSMCTL_POWERON:
+      strcpy(stext, "searching");
+      break;
+    case GSMCTL_POWERON|GSMCTL_REGISTERED:
+      strcpy(stext, "registered");
+      break;
+    case GSMCTL_POWERON|GSMCTL_REGISTERED|GSMCTL_ROAMING:
+      strcpy(stext, "roaming");
+      break;
+    case GSMCTL_DENIED:
+      strcpy(stext, "denied");
+      break;
+  }
 }
 
 /*
@@ -136,7 +235,12 @@ void gsmctl_addNumber(HANDLE_GSMCTL hgsmctl)
 {
   hgsmctl->flags &= ~GSMCTL_GOTNUMBER;
   hgsmctl->flags |= GSMCTL_ADDNUMBER;
-  gsmctl_init(hgsmctl);
+  hgsmctl->reset_timeout = 60; /* Give up after 1 minutes */
+}
+
+void gsmctl_addNumberCancel(HANDLE_GSMCTL hgsmctl)
+{
+  hgsmctl->flags &= ~(GSMCTL_ADDNUMBER|GSMCTL_GOTNUMBER);
 }
 
 /*
@@ -196,12 +300,22 @@ void gsmctl_thread(HANDLE_GSMCTL hgsmctl)
     return;
   }
 
-  /* Do reset from time to time to ensure GSM mobile phone is configured correctly */
-  if ( hgsmctl->reset_timeout > 0 /*&& (hgsmctl->flags & GSMCTL_ADDNUMBER) == 0*/ ) {
+  /* Do reset from time to time to ensure GSM modem is configured correctly */
+  if ( hgsmctl->reset_timeout > 0 )
+  {
     hgsmctl->reset_timeout--;
-    if (hgsmctl->reset_timeout == 0) {
-      gsmctl_init(hgsmctl);
-      hgsmctl->reset_timeout = 120;
+    if (hgsmctl->reset_timeout == 0)
+    {
+      if (hgsmctl->flags & GSMCTL_ADDNUMBER) {
+        gsmctl_addNumberCancel(hgsmctl);
+      } else {
+        gsmctl_init(hgsmctl);
+      }
+      if (hgsmctl->flags & GSMCTL_REGISTERED) {
+        hgsmctl->reset_timeout = 120;
+      } else {
+        hgsmctl->reset_timeout = 5;
+      }
     }
   }
   
@@ -301,16 +415,6 @@ int gsmctl_open(HANDLE_GSMCTL *phgsmctl, int dev)
     *hgsmctl->allowedNumbers[err] = 0;
   }
 
-#if defined(__MSP430_169__) || defined(__MSP430_1611__) || defined(__MSP430_149__)
-  /* Init Telit GSM modem */
-  P6OUT |= BIT2;
-  kernel_sleep(MSEC2JIFFIES(1000));
-  kernel_yield();
-  P6OUT |= BIT4;
-  kernel_sleep(MSEC2JIFFIES(1000));
-  kernel_yield();
-  P6OUT &= ~BIT4;
-#endif
 
   err = rs232_open(&hgsmctl->rs232, dev, GSM_BAUDRATE, RS232_FMT_8N1);
   if (err != 0) {
@@ -327,6 +431,8 @@ int gsmctl_open(HANDLE_GSMCTL *phgsmctl, int dev)
   /* Disable I/O lockout. */
   hgsmctl->no_io_timeout = 0;
 
+  hgsmctl->flags = 0;
+
   *phgsmctl = hgsmctl;
   
   return 0;
@@ -341,11 +447,6 @@ bail:
 #endif
   }
   return err;
-}
-
-void gsmctl_addNumberCancel(HANDLE_GSMCTL hgsmctl)
-{
-  hgsmctl->flags = 0;
 }
 
 void gsmctl_close(HANDLE_GSMCTL hgsmctl)

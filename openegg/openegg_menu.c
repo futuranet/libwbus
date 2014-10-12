@@ -122,20 +122,17 @@ void openegg_menu_state(openegg_menu_callback cb)
   }
   
   /* Do display handling */
-  if (menu_flags & (DISP_TEXT|DISP_DIGITS))
-  {     
-    /* Update  display */
-    if (menu_flags & DISP_TEXT) {
-      openegg_ui_displayText(str);
-    }
 
-    if (menu_flags & DISP_DIGITS)
-    {
-      openegg_ui_displayDigits(digits);
-      menu_flags &= ~DISP_DIGITS;
-    }  
+  if (menu_flags & DISP_TEXT) {
+    openegg_ui_displayText(str);
     menu_flags &= ~(DISP_TEXT);
   }
+
+  if (menu_flags & DISP_DIGITS)
+  {
+    openegg_ui_displayDigits(digits);
+    menu_flags &= ~DISP_DIGITS;
+  }  
 }
 
 
