@@ -23,25 +23,16 @@
 #define GSMCTL_ROAMING    16 /* GSM modem uses roaming */
 #define GSMCTL_DENIED     32 /* GSM modem network registration was denied */
 
-#define MAX_PHONE_NUMBERS 4
-
 struct gsmctl{
   HANDLE_RS232 rs232;
   int no_io_timeout;
   int reset_timeout;
   gsmcallback cb;
   void *cb_data;
-  char allowedNumbers[MAX_PHONE_NUMBERS][32];
+  char (*allowedNumbers)[32];
   unsigned char flags;
   unsigned char gotIdx;
 };
-
-__attribute__ ((section (".infomem")))
-const char fNumbers[MAX_PHONE_NUMBERS][32] =
-{
-  {0},{0},{0},{0}
-};
-
 
 static char tmp[32+1];
 
@@ -216,23 +207,11 @@ void gsmctl_getStatus(HANDLE_GSMCTL hgsmctl, char *stext)
 }
 
 /*
- * Get one of the allowd phone numbers by index (start at 0).
- */
-int gsmctl_getNumber(HANDLE_GSMCTL hgsmctl, char *out, int idx)
-{
-  if (idx < 0 || idx >= MAX_PHONE_NUMBERS)
-    return -1;
-
-  strncpy(out, hgsmctl->allowedNumbers[idx], 32);
-
-  return 0;
-}
-
-/*
  * Add next incoming calling phone number to allowed list.
  */
 void gsmctl_addNumber(HANDLE_GSMCTL hgsmctl)
 {
+  hgsmctl->no_io_timeout = 0; /* Stop lock out */
   hgsmctl->flags &= ~GSMCTL_GOTNUMBER;
   hgsmctl->flags |= GSMCTL_ADDNUMBER;
   hgsmctl->reset_timeout = 60; /* Give up after 1 minutes */
@@ -254,25 +233,6 @@ int gsmctl_getNewNumber(HANDLE_GSMCTL hgsmctl, char *out)
     return hgsmctl->gotIdx+1;
   }
   return 0;
-}
-
-/*
- * Save current allowed numbers into non-volatile memory
- */
-void gsmctl_saveNumbers(HANDLE_GSMCTL hgsmctl)
-{
-  flash_write(fNumbers, hgsmctl->allowedNumbers, sizeof(fNumbers));
-}
-
-/*
- * Remove incoming calling phone number from allowed list.
- */
-void gsmctl_removeNumber(HANDLE_GSMCTL hgsmctl, int idx)
-{
-  if (idx >= 0 && idx < MAX_PHONE_NUMBERS) {
-    *hgsmctl->allowedNumbers[idx] = 0;
-    flash_write(fNumbers, hgsmctl->allowedNumbers, sizeof(fNumbers));
-  }
 }
 
 /*  
@@ -361,7 +321,7 @@ void gsmctl_thread(HANDLE_GSMCTL hgsmctl)
   {
     hgsmctl->flags &= ~GSMCTL_ADDNUMBER;
     for (x=0; x<MAX_PHONE_NUMBERS; x++) {
-      if (*hgsmctl->allowedNumbers[x] == 0)
+      if (hgsmctl->allowedNumbers[x][0] == 0)
         break;
     }
     if (x < MAX_PHONE_NUMBERS) {
@@ -377,7 +337,7 @@ void gsmctl_thread(HANDLE_GSMCTL hgsmctl)
     for (x=0; x<MAX_PHONE_NUMBERS; x++)
     {
       /* Check if entry in allowed list is valid */
-      if (*hgsmctl->allowedNumbers[x] != 0) {
+      if (hgsmctl->allowedNumbers[x][0] != 0) {
         ptr = strstr(tmp, hgsmctl->allowedNumbers[x]);
         if (ptr != NULL) {
           /* Allowed number called */
@@ -398,7 +358,7 @@ static struct gsmctl _gsmctl;
 /*
  * 
  */
-int gsmctl_open(HANDLE_GSMCTL *phgsmctl, int dev)
+int gsmctl_open(HANDLE_GSMCTL *phgsmctl, GSM_NUMBERS fNumbers, int dev)
 {
   HANDLE_GSMCTL hgsmctl = NULL;
   int err;
@@ -411,10 +371,7 @@ int gsmctl_open(HANDLE_GSMCTL *phgsmctl, int dev)
   hgsmctl = &_gsmctl;
 #endif
 
-  for (err=0; err<MAX_PHONE_NUMBERS; err++) {
-    *hgsmctl->allowedNumbers[err] = 0;
-  }
-
+  hgsmctl->allowedNumbers = fNumbers;
 
   err = rs232_open(&hgsmctl->rs232, dev, GSM_BAUDRATE, RS232_FMT_8N1);
   if (err != 0) {
@@ -422,8 +379,6 @@ int gsmctl_open(HANDLE_GSMCTL *phgsmctl, int dev)
   }
 
   rs232_blocking(hgsmctl->rs232, 0);
-  
-  memcpy(hgsmctl->allowedNumbers, fNumbers, sizeof(fNumbers));
   
   /* Schedule cell phone reset */
   hgsmctl->reset_timeout = 1;

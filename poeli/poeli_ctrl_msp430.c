@@ -253,11 +253,6 @@ void poeli_ctrl_read(unsigned short s[], int n)
   SENSOR_GPR,       /* Glow plug resistance. But I have Seebeck voltage, huh ? */
 #endif
 
-/* Timer A OUT1 toggles ADC 12 trigger signal, thus a factor 2 in the periods. */
-#define ADCTRIG_SLOW (JFREQ*5)
-#define ADCTRIG_FAST (JFREQ/20)
-static unsigned int adc12period;
-
 #ifdef GK_MODULATE
 static unsigned int gkphSetPoint;
 static unsigned int gkzSetPoint;
@@ -291,20 +286,6 @@ static signed int cf_x1, cf_i;
 #define CF_D (100<<ACTMAX_LD2)
 #endif
 #endif
-
-interrupt(TIMERA1_VECTOR) msp430_timer_a1_isr(void)
-{
-  /* 128 Hz interval */
-  switch (TAIV) {
-#if (__MSPGCC__ >= 20110706)
-    case TAIV_TACCR1:
-#else
-    case TAIV_CCR1:
-#endif
-      TACCR1 = TACCR1 + adc12period;   /* 10 or 0.1 Hz trigger for ADC12 */
-      break;
-  }
-}
 
 #if defined(CCPID_ENABLE) || defined(CFPID_ENABLE)
 /*
@@ -605,8 +586,7 @@ void machine_ack(int ack)
 #endif
 
     /* Increase ADC12 sampling frequency */
-    adc12period = ADCTRIG_FAST;
-    TACCR1 = TACCR0 + adc12period;
+    adc_interval_set(1);
 
     /* activate subsystem power */
     P3OUT |= BIT3;
@@ -634,7 +614,7 @@ void machine_ack(int ack)
     TBCCTL6 = CLLD0|OUTMOD_0;
     TBCTL = 0;
     P1OUT &= ~(BIT0|BIT1);
-    adc12period = ADCTRIG_SLOW;
+    adc_interval_set(0);
   }
   pack = ack;
 }
@@ -643,17 +623,6 @@ static
 void adc_init(void)
 {
   ADC12CTL0 = 0;
-
-  /* Timer A as main timer source and ADC12 trigger */
-  TACTL = 0;
-  TACCTL0 = OUTMOD_0|CCIE;
-  TACCTL1 = OUTMOD_4|CCIE;
-  TACCTL2 = 0;
-  /* Timer A clock 32768Hz / 8 = 4096Hz (JFREQ) */
-  TACCR0 = JFREQ; /* RTC 1Hz time base */
-  adc12period = ADCTRIG_SLOW; /* ADC12 trigger clock 0.1Hz (10Hz while active) */
-  TACCR1 = adc12period;
-  TACTL = TASSEL_1|ID_3|MC_2|TACLR;
 
   /* ADC12 sensor inputs */
   P6SEL = BIT0|BIT1|BIT2|BIT3|BIT4|BIT5|BIT6|BIT7;

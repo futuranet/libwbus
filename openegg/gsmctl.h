@@ -6,6 +6,10 @@
 
 typedef struct gsmctl *HANDLE_GSMCTL;
 
+#define MAX_PHONE_NUMBERS 4
+
+typedef char GSM_NUMBERS[MAX_PHONE_NUMBERS][32];
+
 typedef void (*gsmcallback)(HANDLE_GSMCTL hgsmctl, void *data);
 
 /*
@@ -25,12 +29,6 @@ int gsmctl_getTime(HANDLE_GSMCTL hgsmctl, rtc_time_t *time);
  */
 int gsmctl_getNumber(HANDLE_GSMCTL hgsmctl, char *out, int idx);
 
-
-/*
- * Remove one of the allowd phone numbers by index (start at 0).
- */
-void gsmctl_removeNumber(HANDLE_GSMCTL hgsmctl, int idx);
-
 /*
  * Add next incoming calling phon number to allowed list.
  */
@@ -40,11 +38,6 @@ void gsmctl_addNumber(HANDLE_GSMCTL hgsmctl);
  * Get last received not yet added number
  */
 int gsmctl_getNewNumber(HANDLE_GSMCTL hgsmctl, char *out);
-
-/*
- * Save current allowed numbers into non-volatile memory
- */
-void gsmctl_saveNumbers(HANDLE_GSMCTL hgsmctl);
 
 /*
  * Register a callback function for successful incoming requests (calls
@@ -60,7 +53,7 @@ void gsmctl_thread(HANDLE_GSMCTL hgsmctl);
 /*
  * Open an gsm ctl instance.
  */
-int gsmctl_open(HANDLE_GSMCTL *phgsmctl, int dev);
+int gsmctl_open(HANDLE_GSMCTL *phgsmctl, GSM_NUMBERS fNumbers, int dev);
 
 /*
  * Cancel add number operation

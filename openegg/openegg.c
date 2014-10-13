@@ -29,7 +29,6 @@ typedef enum {
   MENU_GSM_STATUS,
   MENU_GSM_ADD,
   MENU_GSM_REMOVE,
-  MENU_GSM_SAVE,
   MENU_GSM_NITZ,
 
   MENU_TIMER_SELECT,
@@ -94,11 +93,10 @@ const mstate_t menu_monitor[6] =
   { menu, MENU_NAV | MENU_END, "<---"}
 };
 
-const mstate_t menu_gsm[6] =
+const mstate_t menu_gsm[5] =
 {
   { NULL, MENU_GSM_STATUS, "GSM status" },
   { NULL, MENU_GSM_ADD, "Neue Nummer" },
-  { NULL, MENU_GSM_SAVE, "Speichern" },
   { NULL, MENU_GSM_REMOVE | MENU_ITER, "Entfernen" },
   { NULL, MENU_GSM_NITZ | MENU_ITER, "NITZ" },
   { menu, MENU_NAV | MENU_END, "<---"}
@@ -205,17 +203,19 @@ typedef struct {
   signed char heatTime;
   unsigned char heaterMode;
   unsigned char gsmUseNitz;
+  GSM_NUMBERS fNumbers;
 } settings_t;
 
 static settings_t settings;
 
-__attribute__ ((section (".flashrw")))
+__attribute__ ((section (".infomem")))
 settings_t fsettings = 
 {
   { { 0, 0, 7 },{ 0, 0, 12 },{ 0, 0, 19 } },
   20,
   WBUS_PH,
-  1
+  1,
+  { {0},{0},{0},{0} }
 };
 
 static rtc_time_t *ptime;
@@ -439,6 +439,7 @@ static void openegg_do(int cmd, int *pflags, char *text, char *digits)
       break;      
 
     case MENU_GSM_STATUS:
+      flags &= ~CMD_STICKY;
       gsmctl_getStatus(hgsmctl, text);
       flags |= DISP_TEXT;
       break;
@@ -451,28 +452,23 @@ static void openegg_do(int cmd, int *pflags, char *text, char *digits)
         if (gsmctl_getNewNumber(hgsmctl, text)) {
           flags |= DISP_TEXT;
           flags &= ~CMD_STICKY;
-        }
-        if (flags & ITER_ACK) {
-          gsmctl_addNumberCancel(hgsmctl);
-          flags &= ~CMD_STICKY;
-          strcpy(text, "Abgebrochen");
-          flags |= DISP_TEXT;
+          flash_write(&fsettings, &settings, sizeof(settings_t));
         }
       }
       break;
     case MENU_GSM_REMOVE:
       flags &= ~CMD_STICKY;
       if (flags & ITER_ACK) {
-        gsmctl_removeNumber(hgsmctl, icnt);
-        gsmctl_saveNumbers(hgsmctl);
+        settings.fNumbers[icnt][0] = 0;
+        flash_write(&fsettings, &settings, sizeof(settings_t));
       }
-      err = gsmctl_getNumber(hgsmctl, text, icnt);
-      if (err) {
-        if (icnt != 0) {
-          icnt = 0;
-          err = gsmctl_getNumber(hgsmctl, text, 0);
-        }
+      if (icnt < 0) {
+        icnt = 0;
       }
+      if (icnt >= MAX_PHONE_NUMBERS) {
+        icnt = MAX_PHONE_NUMBERS-1;
+      }
+      strcpy(text, settings.fNumbers[icnt]);
       sprintf(digits, "%4d", icnt+1);
       if (*text == 0) {
         strcpy(text, "Leer");
@@ -480,15 +476,11 @@ static void openegg_do(int cmd, int *pflags, char *text, char *digits)
       err = 0;
       flags |= DISP_TEXT|DISP_DIGITS;
       break;
-    case MENU_GSM_SAVE:
-      flags &= ~CMD_STICKY;
-      gsmctl_saveNumbers(hgsmctl);
-      break;
     case MENU_GSM_NITZ:
       flags &= ~CMD_STICKY;
       if (flags & ITER_ACK) {
         settings.gsmUseNitz = icnt;
-        flash_write(&fsettings, &settings, sizeof(settings_t));
+        flash_write(&fsettings, &settings, 4);
       }
       if (flags & ITER_START) {
         icnt = settings.gsmUseNitz;
@@ -787,7 +779,7 @@ TASK_FUNC(openegg_gsmctl_thread)
 {
   int i = 20;
 
-  gsmctl_open(&hgsmctl, GSM_DEV);
+  gsmctl_open(&hgsmctl, settings.fNumbers, GSM_DEV);
   gsmctl_registerCallback(hgsmctl, turn_on_heater_gsm, NULL);
 
   while (1) {

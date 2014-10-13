@@ -133,6 +133,11 @@ unsigned int machine_getJiffies(void);
 /* ADC12 */
 
 /*
+ * Set ADC read interval fast (fast=1) or slow (fast=0)
+ */
+void adc_interval_set(int fast);
+
+/*
  * Read single ADC channel number "c".
  */
 int adc_read_single(int c);

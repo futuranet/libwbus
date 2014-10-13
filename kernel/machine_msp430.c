@@ -426,8 +426,9 @@ interrupt(BASICTIMER_VECTOR) msp430_basic_timer_isr(void)
 
   wup = msp430_timer_tick();
 
-  if (wup)
+  if (wup) {
     machine_wakeup();
+  }
 } 
 
 interrupt(WDT_VECTOR) msp430_watchdog_rtc(void)
@@ -499,6 +500,37 @@ void machine_init_io(void)
   U0CTL = 0;
   U1CTL = 0;
 }
+
+/* Timer A OUT1 toggles ADC 12 trigger signal, thus a factor 2 in the periods. */
+#define ADCTRIG_SLOW (JFREQ*5)
+#define ADCTRIG_FAST (JFREQ/20)
+static unsigned int adc12period;
+
+void machine_init_timer(void)
+{
+  /* Timer A as main timer source and ADC12 trigger */
+  TACTL = 0;
+  TACCTL0 = OUTMOD_0|CCIE;
+  TACCTL1 = OUTMOD_4|CCIE;
+  TACCTL2 = 0;
+  /* Timer A clock 32768Hz / 8 = 4096Hz (JFREQ) */
+  TACCR0 = JFREQ; /* RTC 1Hz time base */
+  adc12period = ADCTRIG_SLOW;
+  TACCR1 = adc12period;
+  TACTL = TASSEL_1|ID_3|MC_2|TACLR;
+}
+
+void adc_interval_set(int fast)
+{
+  if (fast) {
+    adc12period = ADCTRIG_FAST;
+    TACCR1 = TAR + adc12period;
+  } else {
+    adc12period = ADCTRIG_SLOW;
+    TACCR1 = TAR + adc12period;
+  }
+}
+
 #elif defined(EGG_HW)
 
 void machine_init_io(void)
@@ -533,7 +565,10 @@ void machine_init_io(void)
   TBCTL = 0;
   U0CTL = 0;
   U1CTL = 0;
+}
 
+void machine_init_timer(void)
+{
   /* Timer A as main timer source */
   TACTL = 0;   
   TACCTL0 = OUTMOD_0|CCIE;
@@ -544,26 +579,6 @@ void machine_init_io(void)
   TACCR2 = JFREQ/TFREQ;
   TACTL = TASSEL_1|ID_3|MC_2|TACLR;
 }
-
-interrupt(TIMERA1_VECTOR) msp430_timer_a1_isr(void)
-{
-  int wup=0;
- 	
-  /* 128 Hz interval */
-  switch (TAIV) {
-#if (__MSPGCC__ >= 20110706 )
-    case TAIV_TACCR2:
-#else
-    case TAIV_CCR2:
-#endif
-      TACCR2 = TACCR2 + (JFREQ/TFREQ); /* software timer base */
-      wup = msp430_timer_tick();
-      break;
-  }
-  if (wup) {
-    machine_wakeup();
-  }
-} 
 
 #else
 
@@ -583,7 +598,36 @@ interrupt(TIMERA0_VECTOR) msp430_timer_a0_isr(void)
   }
 }
 
-#endif /* POELI_HW */
+interrupt(TIMERA1_VECTOR) msp430_timer_a1_isr(void)
+{
+  int wup=0;
+ 	
+  /* 128 Hz interval */
+  switch (TAIV) {
+#ifdef POELI_HW
+#if (__MSPGCC__ >= 20110706)
+    case TAIV_TACCR1:
+#else
+    case TAIV_CCR1:
+#endif
+      TACCR1 = TACCR1 + adc12period;   /* 10 or 0.1 Hz trigger for ADC12 */
+      break;
+#endif
+#if (__MSPGCC__ >= 20110706 )
+    case TAIV_TACCR2:
+#else
+    case TAIV_CCR2:
+#endif
+      TACCR2 = TACCR2 + (JFREQ/TFREQ); /* software timer base */
+      wup = msp430_timer_tick();
+      break;
+  }
+  if (wup) {
+    machine_wakeup();
+  }
+} 
+
+#endif /* MSP430 type */
 
 void machine_init(void)
 {
@@ -591,13 +635,15 @@ void machine_init(void)
   
   WDTCTL = WDTPW | WDTHOLD;     /* stop watchdog timer */
   
+  /* Setup CPU clock */
+  msp430_core_init();
+
   /* Setup RTC */
   rtc_init();
 
   machine_init_io();
 
-  /* Setup clocks */
-  msp430_core_init();
+  machine_init_timer();
 
 #ifndef POELI_HW
   /* Setup adc for sensor reading */
@@ -787,11 +833,14 @@ unsigned int machine_getJiffies(void)
 }
 
 #ifdef EGG_HW
+
+#ifdef __MSP430_449__
 interrupt(PORT1_VECTOR) msp430_port1_interrupt(void)
 {
   P1IFG = 0;
   machine_wakeup();
 }
+#endif
 
 int machine_stayAwake(void)
 {
@@ -854,7 +903,8 @@ void flash_write(void *_fptr, void *_rptr, int nbytes)
   int *fptr = _fptr;
   int *rptr = _rptr;
   int words = ((nbytes & 63)+1)>>1;
-  unsigned short p_block_write[sizeof(FCN_SIZE)/sizeof(short)];
+  unsigned int p_block_write[sizeof(FCN_SIZE)/sizeof(short)];
+  unsigned int mask;
   block_write_t *pf_block_write = (block_write_t*)p_block_write;
 
   memcpy(p_block_write, flash_block, FCN_SIZE);
@@ -872,17 +922,23 @@ void flash_write(void *_fptr, void *_rptr, int nbytes)
 #else
   FCTL2 = FWKEY | FSSEL_1 | (17-1);   /* Use 8.00MHz MCLK / 17 = 470.588kHz */
 #endif
+  if (isInfoMem) {
+    mask = 0x0ff;
+  } else {
+    mask = 0x1ff;
+  }
 
   /* Write new data */  
   for (; words>0; words-=32) {
-    if ( ((size_t)fptr & 0x1ff) == 0) { 
+    if ( ((size_t)fptr & mask) == 0) { 
       /* Erase segment */
       FCTL3 = FWKEY;          /* Unlock */
       FCTL1 = FWKEY | ERASE;  /* Erase segment */
       *fptr = 0xff;
     }
     pf_block_write(fptr, rptr, (words > 32) ? 32 : words);
-    fptr += 64;
+    fptr += 32;
+    rptr += 32;
   }
 
   FCTL3 = FWKEY|LOCK;     /* Lock */
@@ -901,9 +957,7 @@ void flash_write(void *_fptr, void *_rptr, int nbytes)
   int wdg;
   int *fptr = _fptr;
   int *rptr = _rptr;
-  int words = (nbytes+1)>>1;
-
-  machine_led_set(1);
+  int words = (nbytes+1)>>1, i;
 
   /* Disable interrupts and watchdog */
   dint();
@@ -921,25 +975,35 @@ void flash_write(void *_fptr, void *_rptr, int nbytes)
   FCTL3 = FWKEY;          /* Unlock */
   FCTL1 = FWKEY | ERASE;  /* Erase segment */
   *fptr = 0xff;
-    
+
+  FCTL3 = FWKEY | LOCK;   /* Lock */
+
   /* Write new data */
-  for (; words>0; words--) {
-    FCTL3 = FWKEY;          /* Unlock */
-    FCTL1 = FWKEY | WRT;
-    if (rptr != NULL) {
+  if (rptr != NULL) {
+    for (i=0; i<words; i++)
+    {
+      FCTL3 = FWKEY;          /* Unlock */
+      FCTL1 = FWKEY | WRT;
       *fptr++ = *rptr++;
-    } else {
-      *fptr++ = 0;
+      FCTL1 = FWKEY;
+      FCTL3 = FWKEY|LOCK;     /* Lock */
     }
-    FCTL3 = FWKEY|LOCK;     /* Lock */
-    FCTL1 = FWKEY;
+  } else {
+    for (i=0; i<words; i++)
+    {
+      FCTL3 = FWKEY;          /* Unlock */
+      FCTL1 = FWKEY | WRT;
+      *fptr++ = 0;
+      FCTL1 = FWKEY;
+      FCTL3 = FWKEY|LOCK;     /* Lock */
+    }
   }
 
-  /* Restore Watchdog settings */
+  /* Reset timers to avoid compare register reload trouble. */
+  machine_init_timer();
+
+  /* restore watchdog and interrupts */
   WDTCTL = wdg | WDTPW;
-  /* Enable interrupts */
   eint();
-  
-  machine_led_set(0);
 }
 #endif
