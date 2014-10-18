@@ -580,6 +580,12 @@ void machine_init_timer(void)
   TACTL = TASSEL_1|ID_3|MC_2|TACLR;
 }
 
+#define BACKLIGHT_PWM
+
+#ifdef BACKLIGHT_PWM
+static unsigned int machine_backlight_pwm0, machine_backlight_pwm1;
+#endif
+
 #else
 
 #error unknown hardware variant
@@ -602,7 +608,6 @@ interrupt(TIMERA1_VECTOR) msp430_timer_a1_isr(void)
 {
   int wup=0;
  	
-  /* 128 Hz interval */
   switch (TAIV) {
 #ifdef POELI_HW
 #if (__MSPGCC__ >= 20110706)
@@ -610,7 +615,23 @@ interrupt(TIMERA1_VECTOR) msp430_timer_a1_isr(void)
 #else
     case TAIV_CCR1:
 #endif
-      TACCR1 = TACCR1 + adc12period;   /* 10 or 0.1 Hz trigger for ADC12 */
+      TACCR1 = TACCR1 + adc12period;   /* variable trigger for ADC12 */
+      break;
+#endif
+#ifdef BACKLIGHT_PWM
+#if (__MSPGCC__ >= 20110706)
+    case TAIV_TACCR1:
+#else
+    case TAIV_CCR1: 
+#endif
+      /* variable backlight PWM */
+      if (P6OUT & BIT3) {
+        TACCR1 = TACCR1 + machine_backlight_pwm0;
+        P6OUT &= ~BIT3;
+      } else {
+        TACCR1 = TACCR1 + machine_backlight_pwm1;
+        P6OUT |= BIT3;
+      }
       break;
 #endif
 #if (__MSPGCC__ >= 20110706 )
@@ -773,16 +794,32 @@ unsigned int machine_buttons(int do_read)
 
 int machine_backlight_get(void)
 {
+#ifdef BACKLIGHT_PWM
+  return machine_backlight_pwm1-1;
+#else
   return (P6OUT & BIT3) ? 1 : 0;
+#endif
 }
 
 void machine_backlight_set(int en)
 {
+#ifdef BACKLIGHT_PWM
+  machine_backlight_pwm0 = (BACKLIGHT_MAX-en)+2;
+  machine_backlight_pwm1 = en+1;
+  if (en > 0) {
+    TACCTL1 = OUTMOD_0|CCIE;
+    TACCR1 = TAR + machine_backlight_pwm0;
+  } else {
+    TACCTL1 = 0;
+    P6OUT &= ~BIT3;
+  }
+#else
   if (en) {
     P6OUT |= BIT3;
   } else {
     P6OUT &= ~BIT3;
   }
+#endif
 }
 
 void machine_led_set(int s)
@@ -1001,6 +1038,9 @@ void flash_write(void *_fptr, void *_rptr, int nbytes)
 
   /* Reset timers to avoid compare register reload trouble. */
   machine_init_timer();
+#ifdef BACKLIGHT_PWM
+  machine_backlight_set(machine_backlight_get());
+#endif
 
   /* restore watchdog and interrupts */
   WDTCTL = wdg | WDTPW;

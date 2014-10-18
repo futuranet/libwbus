@@ -105,7 +105,7 @@ void openegg_menu_state(openegg_menu_callback cb)
   }
 
   if (btn & OPENEGG_BTN3) {
-    machine_backlight_set(!machine_backlight_get());
+    machine_backlight_set(BACKLIGHT_MAX-machine_backlight_get());
   }     
 
   /* Process current state */

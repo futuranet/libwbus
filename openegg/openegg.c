@@ -25,6 +25,7 @@ typedef enum {
   MENU_MONITOR_T2,
   MENU_MONITOR_P0,
   MENU_MONITOR_P1,
+  MENU_MONITOR_BACKLIGHT,
 
   MENU_GSM_STATUS,
   MENU_GSM_ADD,
@@ -79,12 +80,13 @@ typedef enum {
 	
 } state_id; 
 
-/* Non Menu end points require forward declarations for go back entries */
+/* Non Menu end points require forward declarations for go-back entries */
 const mstate_t menu[4];
 const mstate_t menu_heater[7];
 
-const mstate_t menu_monitor[6] =
+const mstate_t menu_monitor[7] =
 {
+  { NULL, MENU_MONITOR_BACKLIGHT | MENU_ITER, "Beleuchtung" },
   { NULL, MENU_MONITOR_T0, "T Oel" },
   { NULL, MENU_MONITOR_T1, "T ESP" },
   { NULL, MENU_MONITOR_T2, "T uC" },
@@ -203,6 +205,7 @@ typedef struct {
   signed char heatTime;
   unsigned char heaterMode;
   unsigned char gsmUseNitz;
+  unsigned char backlight;
   GSM_NUMBERS fNumbers;
 } settings_t;
 
@@ -215,6 +218,7 @@ settings_t fsettings =
   20,
   WBUS_PH,
   1,
+  BACKLIGHT_MAX,
   { {0},{0},{0},{0} }
 };
 
@@ -403,6 +407,27 @@ static void openegg_do(int cmd, int *pflags, char *text, char *digits)
 
   switch (cmd)
   {
+    case MENU_MONITOR_BACKLIGHT:
+      flags &= ~CMD_STICKY;
+      if (flags & ITER_START) {
+        icnt = machine_backlight_get();
+      }
+      if (icnt > BACKLIGHT_MAX) {
+        icnt = BACKLIGHT_MAX;
+      }
+      if (icnt < 0) {
+        icnt = 0;
+      }
+      if (flags & ITER_ACK) {
+        settings.backlight = icnt;
+        flash_write(&fsettings, &settings, sizeof(settings_t));
+      }
+      if (flags & (ITER_START|ITER_NEXT|ITER_BACK)) {
+        machine_backlight_set(icnt);
+        sprintf(digits, "%d", icnt);
+        flags |= DISP_DIGITS;
+      }
+      break;
     /* Generic commands */
     case MENU_MONITOR_T0:
       read_adc_and_convert(digits, 2);
@@ -478,12 +503,12 @@ static void openegg_do(int cmd, int *pflags, char *text, char *digits)
       break;
     case MENU_GSM_NITZ:
       flags &= ~CMD_STICKY;
+      if (flags & ITER_START) {
+        icnt = settings.gsmUseNitz ? 1 : 0;
+      }
       if (flags & ITER_ACK) {
         settings.gsmUseNitz = icnt;
-        flash_write(&fsettings, &settings, 4);
-      }
-      if (flags & ITER_START) {
-        icnt = settings.gsmUseNitz;
+        flash_write(&fsettings, &settings, sizeof(settings_t));
       }
       if (icnt > 1) {
         icnt = 0;
@@ -739,9 +764,10 @@ TASK_FUNC(openegg_thread)
   int active = ACTIVE_TIMEOUT*50;
 
   openegg_menu_init();
+  machine_backlight_set(settings.backlight);
 
   while ( 1 ) {
-    if ( machine_stayAwake() || machine_buttons(0) || fHeaterOn)
+    if ( machine_stayAwake() || machine_buttons(0) /*|| fHeaterOn*/)
     {
       /* In case active mode is triggered by buttons,
          wait until these are released again. */
@@ -797,6 +823,8 @@ TASK_FUNC(openegg_gsmctl_thread)
           i = 20;
         }
       }
+    } else {
+      i = 2;
     }
     kernel_sleep(MSEC2JIFFIES(1000));
     kernel_yield();

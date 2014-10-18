@@ -86,6 +86,7 @@ void machine_timer_reset(HANDLE_TIMER hTimer, int ival);
 
 void machine_beep(void);
 void machine_led_set(int s);
+#define BACKLIGHT_MAX 10
 int machine_backlight_get(void);
 void machine_backlight_set(int en);
 unsigned int machine_buttons(int do_read);
