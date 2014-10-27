@@ -35,7 +35,7 @@ transmissions are echoed back to the transmitter.
 
 Initialization
 BREAK set for 50ms
-BREAK resett and wait 50ms
+BREAK reset and wait 50ms
 After that, the following transaction takes place
 TX f4 03 51 0a ac
 RX 4f 04 d1 0a 33 a3
@@ -94,8 +94,8 @@ The heater answers:
 0x4f 0x08 0xd0 0x0f 0x00 0x00 0x00 0x00 0x00 0x98
 
 0x4f: Address header
-0x08: 8 bytes folgen, including Checksum
-0xd0: Bit 7 ist 1 (ack)
+0x08: 8 bytes, including Checksum
+0xd0: Bit 7 is 1 (ack)
 	command 0x50 acknowledged (= 0xd0 & 0x7f)
 0x0f: Index 0x0f acknowledged.
 0x00 0x00 0x00 0x00 0x00: the requested values
@@ -107,12 +107,12 @@ Command:
 Known commands so far
 
 Command 0x10
-  Shutdown. No data. Danach ist sensor 0x50 0x03
+  Shutdown. No data. Afterwards sensor 0x50 is 0x03
 von 0x03 0x03 auf 0x03 0x01 zurück gekehrt. Später dann auf 0x03 0x00.
 
 Command 020
-  Ein byte daten (Laufzeit in Minuten). Einschalten, wenns keine speziellen
-modi gibt, sonder nur "an" oder "aus".
+  One byte data (operating time in minutes). Just turn on the single only
+mode that is available. Other similar commands are more specific.
 
 Command 0x21
   Parking heater on. One byte data for length of heating in minutes
@@ -128,7 +128,7 @@ TX f4 03 22 3b ee
 RX 4f 03 a2 3b d5
 
 Command 0x23
-  Turn on  supplemental heating. One byte data for length of heating in minutes
+  Turn on supplemental heating. One byte data for length of heating in minutes
 TX f4 03 23 3b ef 
 RX 4f 03 a3 3b d4 
 
@@ -139,19 +139,21 @@ Command 025
   Boost mode, whatever boost mode is...
 
 Command 0x38
-  Wird kurz nach Anfang der Diagnose einmal betätigt. Dann nie wieder. Das
-h�chste bit von b8 ist auf "1" in der Antwort, das bedeutet ACK 
+  The Diagnosis issues this command once. It seems to be acknowlegded. No
+idea what it is for.
 TX f4 02 38 ce    
 RX 4f 09 b8 0b 00 00 00 00 03 dd 2b  
-5
+
 Command 0x44
-  Wurde nach einem Startversuch gesehen.
-  Annahme: Diese Command dient dazu die Beständigkeit eines anderen
-komandos zu prüfen. In diesem Fall komando 0x21, welcher heizen ist.
+  Observed after any "turn on" command. It is sort of a keep alive of the
+  operating mode. The same command byte from the "turn on" message is used
+  to reference that specific mode which is currently running.
 TX f4 04 44 21 00 95
 RX 4f 03 c4 00 88 42 
-Ein NACK bedeutet wohl das der entsprechende komando nicht mehr am laufen
-ist.
+It seems like that the heater acknowledges this for ever. So it is a good
+idea to stop issuing this command if the heater device is expected to stop,
+or perhaps by reading a sensor an detecting that way that the heater is not
+running anymore. If not this might cause a never ending keep alive cycle.
 
 Command 0x45
   Component test.
@@ -176,12 +178,10 @@ Command 0x45
 
 Command 0x50
   Sensoren, bzw Status abfragen. Hat ein byte daten (index)
-  Index 03: Vermutung: bitmaske die den Betriebs Sustand anzeigt, bzw, sieht
-  es so aus das manche bits anziegen ob bestimmte agregate ans sind oder
-  nicht.  
+  Index 03: Bitfields indicating operation of different subsystems.
   Daten: 
-  1 byte: Index von was gemessen werden soll. Folgende bytes bei der Antwort
-  sind die Daten.
+  1 byte: Index of what should be indicated. Possible responses below. Heading
+  number is the amount of bytes of the response.
     02: Status flags (bitmasks below):
       byte 0
        0x10: Suplemental heater request
@@ -197,7 +197,7 @@ Command 0x50
        0x01: ignition (terminal 15)
 
     03: On/Off flags of different subsystems
-    1 byte: Bitmaske was eingeschaltet ist (engeschaltet ist bit auf 1):
+    1 byte: Bitfield of components (operating is signaled by bits set to 1):
       0x01 Combustion Air Fan (CAF)
       0x02 Glowplug / Spark transmitter (ST)
       0x04 Fuel Pump
@@ -210,8 +210,8 @@ Command 0x50
         (but details are unclear). 3 bytes. Example: 0x1d, 0x3c, 0x3c
 
     05: Operational measurements
-     byte0: Temperatur mit 50 Grad offset (20 Grad ist wert=70)
-     byte1,2: Spannung in mili Volt, big endian
+     byte0: Temperature with  50 C offset (20 C is value=70)
+     byte1,2: Voltage in mili Volt, big endian
      byte3: Flame detector (set 0x01, not set 0x00)
      byte4,5: Heating power in watts, big endian
      byte6,7:  Flame detector resistance in mili Ohm, big endian
@@ -326,7 +326,7 @@ Command 0x50
       0x61 Fault memory update prior switch off
       0x62 Ramp full load
     byte1 Operating state state number
-    byte2 Device state
+    byte2 Device state bit field
       0x01 STFL
       0x02 UEHFL
       0x04 SAFL
@@ -338,7 +338,7 @@ Command 0x50
     12: Start counters
      byte0,1 PH start counter
      byte2,3 SH start counter
-     byte4,5 TRS counter (Territories and Regional Support ? Total Reduced Sulphur ? Thermal Reed Switch ?)
+     byte4,5 TRS counter (Territories and Regional Support ? Thermal Reed Switch ?)
 
     15: Subsystems status
      byte0: Glow plug power in percent *2
@@ -347,7 +347,7 @@ Command 0x50
      byte3:
      byte4: Circulation pump percent*2
 
-    17: lower and upper temperature thresholds (50�C offset one unsigned byte each)
+    17: lower and upper temperature thresholds (50 C offset one unsigned byte each)
 
     18: Ventilation duration (2bytes hours big endian and one byte
           minutes, just like all other time values)
@@ -356,22 +356,21 @@ Command 0x50
       2 bytes: Fuel prewarming PTC resistance in mili ohm, big endian
       2 bytes: Fuel prewarming power in watts
 
-    20: spark transmision dings ?
+    20: spark transmision
 
 Command 0x51 read stuff
   Index 0x01: Device ID Number
-  Index 0x02: Hardware version (KW/Jahr), Software version, Software version EEPROM
+  Index 0x02: Hardware version (KW/Year), Software version, Software version EEPROM
   Index 0x03: Data Set ID Number
   Index 0x04: Control Unit Herstellungsdatum (Tag monat jahr je ein byte)
-  Index 0x05: Heizer Herstellungsdatum (Tag monat jahr je ein byte)
-  Index 0x06: 1 byte, keine Ahnung
-  Index 0x07: Customer ID Number (Die VW Teilenummer als string und noch ein paar nummern drann)
-  Index 0x09: Serial Number  
+  Index 0x05: Heater manufacture date (Day of month, month, year. Each one byte)
+  Index 0x06: 1 byte, no idea
+  Index 0x07: Customer ID Number (i.e. VW Part number)
+  Index 0x09: Serial Number
 
-  Index 0x0a: W-BUS version. Antwort ergibt ein byte. Jedes nibble dieses
-  byte entspricht einer Zahl (Zahl1.Zahl2) 
+  Index 0x0a: W-BUS version. 1 byte, each nibble is one digit. 0x33 means version 3.3
 
-  Index 0x0b: Device Name: Als character string zu interpretieren.
+  Index 0x0b: Device Name: ASCII Text string.
   Index 0x0c: W-BUS code. Flags of supported subsystems (bitmasks below).
     byte0
      0x01 unknown (ZH)
@@ -415,24 +414,24 @@ Command 0x51 read stuff
      0x02 Set value flame detector resistance (FW-SET), set value combustion air fan revolutions
           (BG-SET), set value output temperature (AT-SET)
 
-  Index 0x0d: Keine Ahnung  
+  Index 0x0d: No idea.
 
 Command 0x53:
-  Fragt daten ab. Dies geschieht nicht regelmäsig. Deshalb vermutlich keine Sensoren.
+  Read other kind of data. Seemingly rather static data. Diagnosis does not do this so often.
 TXf4 03 53 02 a6 
 RX4f 11 d3 02 2c 24 25 1c 30 d4 fa 40 74 00 00 63 9c 05 6e
   bytes:
-  0: k.A.
+  0: dont know
   1,2: Minimum Voltage threshold
-  3,4,5,6: k.A.
+  3,4,5,6: dont know
   7: Minimum voltage detection delay (delay)
   8,9: Maximum voltage threshold
-  10,11,12,13: k.A.
+  10,11,12,13: dont know
   14: Max voltage detection delay (seconds)
   
 Command 0x56
-  Fehler Code behandlung
-  Erstes daten byte als Index bezeichnet jeweils:
+  Error code stuff
+  First byte serves as an index as follows:
 
   Index 01: read error code list. No Data. Answer ist the error code list
   using the following format:
@@ -578,7 +577,7 @@ RX 4f 0a d6 01 03 98 00 88 00 90 00 11
     ...
     0xfe Customer specific fault 63
     0xff Unknown error code
-    
+
   Index 02: Read complete error code block. 1 data byte corresponding to
   the error code numerical value.
     Format: 
@@ -588,7 +587,7 @@ RX 4f 0a d6 01 03 98 00 88 00 90 00 11
           0x02 actual
         1 byte counter
         2 bytes operating state as command 0x50 index 7 byte 0,1
-        1 byte Temperatur in Celcius offset 50 grad (70 -> 20 Grad)
+        1 byte Temperatur in Celcius offset 50 degree (value 70 -> 20 degrees)
       2 bytes: Power supply voltage during the incident in mili volt.
       2 bytes: Operating duration hours at the incident
       1 byte: Operating duration minutes at the incident
@@ -609,7 +608,7 @@ Error code 98, counter: 1
 
 State: Not actual, not stored
 Counter 1
-Temperatur 20 Grad Celcius
+Temperature 20 degrees Celcius
 Operating State Off
 
 Some more examples
@@ -622,6 +621,7 @@ RX 4f 0e d6 02 90 00 01 04 00 46 35 66 03 97 1d 9c
 
   Index 03: Erase error codes. No data.
 
+
 Command 0x57: CO2 calibration
 example:
 TX f4 03 57 01 a1 
@@ -633,7 +633,7 @@ RX 4f 06 d7 01   97 64 ff   93
 
 IDs of some devices
 
-Label sticker: 1K0 815 005FR (does not much read out value)
+Label sticker: 1K0 815 005FR (does not match value read out below)
 W-Bus version: 3.3
 Device Name: PQ46 SH 
 W-Bus code: 717cc4e73f8000
@@ -650,3 +650,21 @@ Serial Number: 0000025118
 Sensor8: 41f0e004080400
 U1: 0b0000000003dd
 System Level: 00
+
+
+W-Bus version: 3.3
+Device Name: PQ35 ZH 
+W-Bus code: 213cc0e73f0000
+Device ID Number: 0900620743
+Data set ID Number: 090074764500
+Software ID Number: 0000000030
+Hardware version: 38/2
+Software version: Monday 16/3  4.7
+Software version EEPROM: Monday 16/3  4.7
+Date of Manufacture Control Unit: 14.9.3
+Date of Manufacture Heater: 1.10.3
+Customer ID Number: 1K0815071E 0707
+Serial Number: 0000349144
+Sensor8: 42f0d004081858
+U1: 0b0000000003bf
+System Level: 58
