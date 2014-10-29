@@ -160,7 +160,6 @@ int msp430_timer_tick(void)
 }
 
 
-
 static rtc_time_t rtc_now, rtc_alarm;
 static rtc_alarm_callback rtc_alarm_cb;
 static void *rtc_alarm_data;
@@ -336,6 +335,10 @@ void adc_read(unsigned short s[], int n)
   }
 }
 
+#endif
+
+#ifdef __MSP430_449__
+
 static
 void adc_init(void)
 {
@@ -354,9 +357,7 @@ void adc_init(void)
   ADC12MCTL4 = INCH_10|SREF_1; /* Temp */
   ADC12MCTL5 = INCH_11|SREF_1; /* AVcc */
 }
-#endif
 
-#ifdef __MSP430_449__
 static void msp430_core_init(void)
 {
   FLL_CTL0 &= ~XTS_FLL;         /* XT1 as low-frequency */
@@ -448,6 +449,43 @@ interrupt(WDT_VECTOR) msp430_watchdog_rtc(void)
 
 #elif defined(__MSP430_169__) || defined(__MSP430_1611__) || defined(__MSP430_149__)
 
+static
+void adc_init(void)
+{
+  ADC12CTL0 = 0;
+
+#ifdef POELI_HW
+  /* ADC12 sensor inputs */
+  P6SEL = BIT0|BIT1|BIT2|BIT3|BIT4|BIT5|BIT6|BIT7;
+  P6DIR = 0;
+  P6OUT = 0;
+
+  ADC12CTL0 = SHT1_6|SHT0_6|MSC|ADC12ON;
+  ADC12CTL1 = CSTARTADD_0|SHS_1|SHP|ADC12DIV_0|ADC12SSEL_0|CONSEQ_3;
+
+  ADC12IFG = 0;
+
+  /* Trigger interrupt for first and last ADC12MEM for data validation */
+  ADC12IE = (1<<11) | (1<<0);
+
+  /* Setup channel references and memory */
+  ADC12MCTL0 = INCH_0|SREF_0;
+  ADC12MCTL1 = INCH_1|SREF_0;
+  ADC12MCTL2 = INCH_2|SREF_0;
+  ADC12MCTL3 = INCH_3|SREF_0;
+  ADC12MCTL4 = INCH_4|SREF_0;
+  ADC12MCTL5 = INCH_5|SREF_0;
+  ADC12MCTL6 = INCH_6|SREF_0;
+  ADC12MCTL7 = INCH_7|SREF_0;
+  ADC12MCTL8 = INCH_8|SREF_0;
+  ADC12MCTL9 = INCH_9|SREF_0;
+  ADC12MCTL10 = INCH_10|SREF_0;     /* Temp */
+  ADC12MCTL11 = INCH_11|SREF_0|EOS; /* AVcc */
+
+  ADC12CTL0 |= ENC;
+#endif
+}
+
 static void msp430_core_init(void)
 {
   /* MCLK = DCO @ ~8MHz, SMCLK = MCLK */
@@ -510,9 +548,9 @@ void machine_init_timer(void)
 {
   /* Timer A as main timer source and ADC12 trigger */
   TACTL = 0;
-  TACCTL0 = OUTMOD_0|CCIE;
-  TACCTL1 = OUTMOD_4|CCIE;
-  TACCTL2 = 0;
+  TACCTL0 = OUTMOD_0|CCIE; /* RTC */
+  TACCTL1 = OUTMOD_4|CCIE; /* ADC12 trigger */
+  TACCTL2 = OUTMOD_0|CCIE; /* Timer tick */
   /* Timer A clock 32768Hz / 8 = 4096Hz (JFREQ) */
   TACCR0 = JFREQ; /* RTC 1Hz time base */
   adc12period = ADCTRIG_SLOW;
@@ -666,10 +704,8 @@ void machine_init(void)
 
   machine_init_timer();
 
-#ifndef POELI_HW
   /* Setup adc for sensor reading */
   adc_init();
-#endif
 
   /* Set all timers disabled */
 #if (MAX_FASTTIMERS > 0)
@@ -829,11 +865,11 @@ void machine_led_set(int s)
 
 #else
 
-#error unspported hardware.
+#error unspported ARCH
 
 #endif
 
-#elif POELI_HW /* EGG_HW */
+#elif POELI_HW /* Hardware variant */
 
 unsigned int machine_buttons(int do_read)
 {
@@ -853,11 +889,11 @@ void machine_led_set(int s)
     P1OUT &= ~BIT3;
 }
 
-#else
+#else /* Hardware variant */
 
-#error Unsupported platform
+#error Unsupported VARIANT
 
-#endif /* EGG_HW */
+#endif /* Hardware variant */
 
 
 unsigned int machine_getJiffies(void)

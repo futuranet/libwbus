@@ -5,14 +5,17 @@ VPATH = %.c ./wbus ./kernel ./openegg ./util ./poeli ./ph
 
 # Assume some default hardware configuration options. Only relevant for poeli.
 ifeq "$(PSENSOR)" ""
+# 1: MPX5100, 2: MPX4250
  PSENSOR=1
  $(warning Assuming PSENSOR=$(PSENSOR))
 endif
 ifeq "$(NOZZLE)" ""
+# 1: Hago SN609-02, 2: Delavan SN30609-01
  NOZZLE=1
  $(warning Assuming NOZZLE=$(NOZZLE))
 endif
 ifeq "$(CAF)" ""
+# 1: Toy, 2: DBW46
  CAF=1
  $(warning Assuming CAF=$(CAF))
 endif
@@ -28,9 +31,12 @@ endif
 ifeq "$(VARIANT)" "egg"
 	CFLAGS += -DEGG_HW
 	PROGRAMS = $(BINDIR)/openegg$(EXE_SUFFIX)
-else
+else ifeq "$(VARIANT)" "poeli"
 	CFLAGS += -DPOELI_HW
-	PROGRAMS = $(BINDIR)/poeli$(EXE_SUFFIX) $(BINDIR)/ph$(EXE_SUFFIX)
+	PROGRAMS = $(BINDIR)/poeli$(EXE_SUFFIX)
+else ifeq "$(VARIANT)" "ph"
+	CFLAGS += -DPH_HW
+	PROGRAMS = $(BINDIR)/ph$(EXE_SUFFIX)
 endif
 
 #CFLAGS += -g -O2 -finline-functions -Wall -Iinclude -Isrc
@@ -117,7 +123,7 @@ $(OBJDIR)/openegg_ui.o: ./openegg/openegg_ui_posix.c ./openegg/openegg_ui_msp430
 $(OBJDIR)/openegg.o: ./include/machine.h ./include/kernel.h
 $(OBJDIR)/rs232.o: ./kernel/rs232_posix.c ./kernel/rs232_msp430.c ./kernel/rs232_win32.c ./include/rs232.h ./include/kernel.h
 $(OBJDIR)/machine.o: ./kernel/machine_posix.c ./kernel/machine_msp430.c ./kernel/machine_win32.c ./include/machine.h ./include/kernel.h
-$(OBJDIR)/poeli_ctrl.o: ./include/poeli_ctrl.h ./include/machine.h ./include/kernel.h
+$(OBJDIR)/poeli_ctrl.o: ./poeli/poeli_ctrl_msp430.c ./poeli/poeli_ctrl_posix.c ./include/poeli_ctrl.h ./include/machine.h ./include/kernel.h
 $(OBJDIR)/wbus.o: ./include/rs232.h ./include/wbus.h ./wbus/wbus_const.h ./include/kernel.h
 $(OBJDIR)/wbus_server.o: ./include/rs232.h ./include/wbus.h ./wbus/wbus_const.h ./include/kernel.h
 $(OBJDIR)/iso.o: ./include/iso.h ./include/kernel.h ./include/rs232.h

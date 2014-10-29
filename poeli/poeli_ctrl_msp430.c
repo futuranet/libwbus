@@ -24,6 +24,13 @@
 
 #ifdef POELI_HW
 
+#define CCPID_ENABLE
+#define CFPID_ENABLE
+
+/* Modulate GK and Nozzle stock preheating power */
+//#define GK_MODULATE
+
+/* USE_RPWM: spread spectrum PWM. */
 /* #define USE_RPWM */
 
 #ifdef USE_RPWM
@@ -619,50 +626,6 @@ void machine_ack(int ack)
   pack = ack;
 }
 
-static
-void adc_init(void)
-{
-  ADC12CTL0 = 0;
-
-  /* ADC12 sensor inputs */
-  P6SEL = BIT0|BIT1|BIT2|BIT3|BIT4|BIT5|BIT6|BIT7;
-  P6DIR = 0;
-  P6OUT = 0;
-
-  ADC12CTL0 = SHT1_6|SHT0_6|MSC|ADC12ON;
-  ADC12CTL1 = CSTARTADD_0|SHS_1|SHP|ADC12DIV_0|ADC12SSEL_0|CONSEQ_3;
-
-  ADC12IFG = 0;
-
-  /* Trigger interrupt for first and last ADC12MEM for data validation */
-  ADC12IE = (1<<11) | (1<<0);
-
-  /* Setup channel references and memory */
-  ADC12MCTL0 = INCH_0|SREF_0;
-  ADC12MCTL1 = INCH_1|SREF_0;
-  ADC12MCTL2 = INCH_2|SREF_0;
-  ADC12MCTL3 = INCH_3|SREF_0;
-  ADC12MCTL4 = INCH_4|SREF_0;
-  ADC12MCTL5 = INCH_5|SREF_0;
-  ADC12MCTL6 = INCH_6|SREF_0;
-  ADC12MCTL7 = INCH_7|SREF_0;
-  ADC12MCTL8 = INCH_8|SREF_0;
-  ADC12MCTL9 = INCH_9|SREF_0;
-  ADC12MCTL10 = INCH_10|SREF_0;     /* Temp */
-  ADC12MCTL11 = INCH_11|SREF_0|EOS; /* AVcc */
-  P6SEL = 0xff;
-  P6DIR = 0x00;
-  
-  /* Setup CAF RPM measurement interrupt */
-  P1DIR &= ~BIT5;
-  P1SEL &= ~BIT5;
-  P1IES &= ~BIT5;
-  P1IE |= BIT5;
-  P1IFG &= ~BIT5;
-
-  ADC12CTL0 |= ENC;
-}
-
 void poeli_ctrl_init(void)
 {
   adc_invalidate();
@@ -671,6 +634,13 @@ void poeli_ctrl_init(void)
 #if defined(CCPID_ENABLE) || defined(CFPID_ENABLE)
   hTimerCtrl=NULL;
 #endif
+
+ /* Setup CAF RPM measurement interrupt */
+  P1DIR &= ~BIT5;
+  P1SEL &= ~BIT5;
+  P1IES &= ~BIT5;
+  P1IE |= BIT5;
+  P1IFG &= ~BIT5;
 }
 
 #endif /* POELI_HW */

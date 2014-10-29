@@ -638,7 +638,7 @@ void wbus_error_add(heater_state_t *state, unsigned char code, unsigned char n, 
       VOLT2WORD(e[i].volt[0], s[SENSOR_VCC]);
       e[i].hour[1] = state->static_data.working_duration.hours;
       e[i].minute = state->static_data.working_duration.minutes;
-      /* FIXME: takes way too long. */
+
       flash_write(union_error.ht_errors, e, sizeof(union_error.ht_errors));
       break;
     } 
