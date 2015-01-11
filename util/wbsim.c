@@ -280,8 +280,12 @@ int wbus_handle_msg(unsigned char cmd, unsigned char *data, int *len)
       data[6] = 0xdd;
       err = 1;
       break;
-    case WBUS_CMD_FP:
-      printf("Fuel priming\n");
+    case WBUS_CMD_X:
+      switch (data[0]) {
+        case 3:
+        printf("Fuel priming\n");
+        break;
+      }
       break;
     case WBUS_CMD_CHK:
       printf("Command check\n");

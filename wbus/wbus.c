@@ -327,7 +327,7 @@ int wbus_host_answer( HANDLE_WBUS wbus,
 int wbus_get_wbinfo(HANDLE_WBUS wbus, HANDLE_WBINFO i)
 {
   int err, len;
-  unsigned char tmp;
+  unsigned char tmp, tmp2[2];
   
   wbus_init(wbus);
 
@@ -337,7 +337,11 @@ int wbus_get_wbinfo(HANDLE_WBUS wbus, HANDLE_WBINFO i)
   tmp = IDENT_DEV_NAME; len = 1; err = wbus_io(wbus, WBUS_CMD_IDENT, &tmp, NULL, 0, (unsigned char*)i->dev_name, &len, 1);
   if (err) goto bail;
   i->dev_name[len] = 0; /* Hack: Null terminate this string */
+#if 0
   tmp = 3;              len = 1; err = wbus_io(wbus, WBUS_CMD_SL_RD, &tmp, NULL, 0, i->strange2, &len, 1);
+#else
+  tmp2[0]=3; tmp2[1]=7; len = 2; err = wbus_io(wbus, WBUS_CMD_SL_RD, tmp2, NULL, 0, i->strange2, &len, 2);
+#endif
   tmp = IDENT_WB_CODE;  len = 1; err = wbus_io(wbus, WBUS_CMD_IDENT, &tmp, NULL, 0, i->wbus_code, &len, 1);
                         len = 0; err = wbus_io(wbus, WBUS_CMD_U1,  NULL, NULL, 0, i->strange, &len, 0);
 
@@ -400,9 +404,10 @@ void wbus_ident_print(char *str, HANDLE_WBINFO i, int line)
     case 10: str += sprintf(str, "Date of Manufacture Heater: %x.%x.%x", i->dom_ht[0], i->dom_ht[1], i->dom_ht[2] ); break;
     case 11: str += sprintf(str, "Customer ID Number: %s", i->customer_id ); break;
     case 12: str += sprintf(str, "Serial Number: "); str=hexdump(str, i->serial, 5); break;
-    case 13: str += sprintf(str, "Sensor8: "); str=hexdump(str, i->u0, 7); break;
-    case 14: str += sprintf(str, "U1: "); str=hexdump(str, i->strange, 7); break;
-    case 15: str += sprintf(str, "System Level: "); str=hexdump(str, i->strange2, 1); break;
+    case 13: str += sprintf(str, "Test signature: "); str=hexdump(str, i->test_signature, 2); break;
+    case 14: str += sprintf(str, "Sensor8: "); str=hexdump(str, i->u0, 7); break;
+    case 15: str += sprintf(str, "U1: "); str=hexdump(str, i->strange, 7); break;
+    case 16: str += sprintf(str, "System Level: "); str=hexdump(str, i->strange2, 1); break;
   }
 }
 
@@ -706,7 +711,7 @@ int wbus_fuelPrime(HANDLE_WBUS wbus, unsigned char time)
   tmp[2] = time>>1;
   len = 3;
   
-  return wbus_io(wbus, WBUS_CMD_FP, tmp, NULL, 0, tmp, &len, 0);
+  return wbus_io(wbus, WBUS_CMD_X, tmp, NULL, 0, tmp, &len, 0);
 }
 
 int wbus_eeprom_read(HANDLE_WBUS wbus, int addr, unsigned char *eeprom_data)
@@ -719,7 +724,7 @@ int wbus_eeprom_read(HANDLE_WBUS wbus, int addr, unsigned char *eeprom_data)
   tmp[0] = addr;
   len = 1;
   
-  return wbus_io(wbus, WBUS_CMD_EEPROM_RD, tmp, NULL, 0, eeprom_data, &len, 2);
+  return wbus_io(wbus, WBUS_TS_ERD, tmp, NULL, 0, eeprom_data, &len, 2);
 }
 
 int wbus_eeprom_write(HANDLE_WBUS wbus, int addr, unsigned char *eeprom_data)
@@ -732,7 +737,7 @@ int wbus_eeprom_write(HANDLE_WBUS wbus, int addr, unsigned char *eeprom_data)
   tmp[0] = addr;
   len = 1;
   
-  return wbus_io(wbus, WBUS_CMD_EEPROM_WR, tmp, eeprom_data, 1, tmp, &len, 0);
+  return wbus_io(wbus, WBUS_TS_EWR, tmp, eeprom_data, 1, tmp, &len, 0);
 }
 
 

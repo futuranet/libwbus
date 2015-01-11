@@ -39,6 +39,10 @@ void openegg_ui_display_init(void)
    printf("\n\n\n\n");
 }
 
+void openegg_ui_display_off(void)
+{
+}
+
 
 #define LINE_LEN 256
 #define LINE_FILL 80

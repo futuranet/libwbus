@@ -34,27 +34,47 @@
 #define WBUS_CMD_CP      0x24 /* Circulation Pump external control */
 #define WBUS_CMD_BOOST   0x25 /* Boost mode */
 
-#define WBUS_CMD_SL_RD   0x32 /* Telestart system level read */
+#define WBUS_CMD_SL_RD   0x32 /* Telestart system level read.  */
+#define WBUS_CMD_X_RD    0x32 /* read something. 2 bytes 0x03 0x07, returns 0x0A */
 #define WBUS_CMD_SL_WR	 0x33 /* Telestart system level write */ 
+#define WBUS_CMD_U1      0x38 /* sent no bytes. answer 0B 00 00 00 00 03 BF */
 
-/* discovered by pczepek, thank a lot ! */
-#define WBUS_CMD_EEPROM_RD 0x35 /* READ_EEPROM [address]. 
+/* Dataset commands */
+#define WBUS_CMD_DS_START 0x47 /* 1 byte = 1 start bloc mode. Issued before WBUS_CMD_BAUD and CMD_DS_LSB */
+#define WBUS_CMD_DS_R     0x03 /* 1 byte: address LSB. return 1 byte read data. */
+#define WBUS_CMD_DS_W     0x04 /* 2 byte: address LSB and data for writing. */
+#define WBUS_CMD_DS_MSB   0x05 /* 1 byte: address MSB. No returned data. For either read or write. */
+#define WBUS_CMD_DS_STOP  0x09 /* 0 byte: stop block mode. */
+#define WBUS_CMD_BAUD     0x34 /* Set block mode baudrate. 2 bytes. 
+                                  0x80 0x00 38400 
+                                  0x40 0x00 19200
+                                  0x20 0x00  9600 */
+/* After issuing WBUS_CMD_DS_START and WBUS_CMD_BAUD, the host sents 0x03 <addr> <checksum>
+   and gets as response 0x03 <addr> <data> <checksum> */
+
+/* discovered by pczepek, thank a lot ! eeprom[8] = int system_level */
+#define WBUS_TS_ERD1     0x32 /* 2 bytes: 0x00 addr */
+#define WBUS_TS_EWR1     0x33 /* 3 bytes: 0x00 addr data */
+#define WBUS_TS_ERD      0x35 /* READ_EEPROM [address]. 
                                  Response length 2 byte. Reads two bytes from
                                  eeprom memory, from address given as parameter.
                                  The eeprom is accessible from address 0x00 to 0x1f.
                                  In eeprom dump I found customer ID Number,
                                  registered remote fob codes, telestart system level etc. */
-#define WBUS_CMD_EEPROM_WR 0x36 /* WRITE_EEPROM [address],[byte1],[byte2]
+#define WBUS_TS_EWR      0x36 /* WRITE_EEPROM [address],[byte1],[byte2]
                                  Write two bytes to eeprom. Address, byte1, byte2
                                  as parameter. */
 
-#define WBUS_CMD_U1      0x38 /* No idea. */
 #define WBUS_TS_REGR     0x40 /* discovered by pczepek, Response length 0 byte.
                                  Parameter 0-0x0f. After issuing command,
                                  press remote fob OFF button to register.
                                  You can register max 3 remote fob. */
 
-#define WBUS_CMD_FP	 0x42 /* Fuel prime. data 0x03 <2 bytes time in seconds / 2> */
+#define WBUS_CMD_X	 0x42 /* Several commands */
+#define   CMD_X_VCAL 1    /* Calibrate voltage. 3 bytes. 1 byte 0, 2 bytes voltage in mV, big endian. */
+#define   CMD_X_FCAL 2    /* Flame detector calibration. 3 bytes. 1 byte 0, 2 bytes mOhm big endian. */
+#define   CMD_X_FP   3    /* Fuel prime. data 0x03 <2 bytes time in seconds / 2> */
+
 #define WBUS_CMD_CHK     0x44 /* Check current command (0x20,0x21,0x22 or 0x23) */
 #define WBUS_CMD_TEST    0x45 /* <1 byte sub system id> <1 byte time in seconds> <2 bytes value> */
 #define WBUS_CMD_QUERY   0x50 /* Read operational information registers */
@@ -256,7 +276,7 @@
 #define IDENT_TSCODE		0x06 /*!< Telestart code */
 #define IDENT_CUSTID		0x07 /*!< Customer ID Number (Die VW Teilenummer als string und noch ein paar Nummern dran) + test sig */
 #define IDENT_U0                0x08 /*!< ? */
-#define IDENT_SERIAL		0x09 /*!< Serial Number */
+#define IDENT_SERIAL		0x09 /*!< 5 bytes: Serial Number. 2 bytes Test signature. */
 #define IDENT_WB_VER		0x0a /*!< W-BUS version. Antwort ergibt ein byte. Jedes nibble dieses byte entspricht einer Zahl (Zahl1.Zahl2) */
 #define IDENT_DEV_NAME		0x0b /*!< Device Name: Als character string zu interpretieren. */
 #define IDENT_WB_CODE		0x0c /*!< W-BUS code. 7 bytes. This is sort of a capability bit field */
@@ -330,6 +350,7 @@
 #define ERR_LIST   1 /* send not data. answer is n, code0, counter0-1, code1, counter1-1 ... coden, countern-1 */
 #define ERR_READ   2 /* send code. answer code, flags, counter ... (err_info_t) */
 #define ERR_DEL    3 /* send no data. answer also no data. */
+#define ERR_TS_LIST 5 /* Telestart error list. Return 5 bytes: n, code0, counter0-1, code1, counter1-1 */
 
 /* Error codes */
 typedef enum {
@@ -468,7 +489,8 @@ typedef enum {
 } wbus_error_t;
 
 #define CO2CAL_READ	1 /* 3 data bytes: current value, min value, max value. */
-#define CO2CAL_WRITE	3 /* 1 data byte: new current value. */
+#define CO2CAL_WRITE_C  2 /* 2 data byte: new current value for cold CO2 cal. */
+#define CO2CAL_WRITE	3 /* 1 data byte: new current value for hot CO2 cal. */
 
 
 /* Component test device definitions */

@@ -10,10 +10,12 @@
 
 #ifdef __MSP430_449__
 #define GSM_BAUDRATE 19200
-#else
+#elif defined __MSP430_149__
 /* As recommended here: http://e2e.ti.com/support/microcontrollers/msp430/f/166/t/90913.aspx */
 #define GSM_BAUDRATE 4800
 #define GSMCTL_TELIT
+#else
+#define GSM_BAUDRATE 115200
 #endif
 
 #define GSMCTL_ADDNUMBER   1 /* The next +CLIP message is registered as an allowed number */

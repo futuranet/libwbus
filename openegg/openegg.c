@@ -218,7 +218,7 @@ settings_t fsettings =
   20,
   WBUS_PH,
   1,
-  BACKLIGHT_MAX,
+  /*BACKLIGHT_MAX*/ 0,
   { {0},{0},{0},{0} }
 };
 

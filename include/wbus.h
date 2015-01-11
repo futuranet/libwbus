@@ -28,7 +28,8 @@ typedef struct
   unsigned char dom_cu[3]; /* day / week / year */
   unsigned char dom_ht[3];
   unsigned char customer_id[20]; /* Vehicle manufacturer part number */
-  unsigned char serial[6];
+  unsigned char serial[5]; 
+  unsigned char test_signature[2];
   unsigned char u0[7];
   /* unsigned char test_signature[5]; */
 } wb_info_t;
@@ -36,7 +37,7 @@ typedef struct
 typedef wb_info_t *HANDLE_WBINFO;
 
 #define WB_NUM_SENSORS 0x14
-#define WB_IDENT_LINES 16
+#define WB_IDENT_LINES 17
 
 typedef struct
 {

@@ -651,7 +651,6 @@ Sensor8: 41f0e004080400
 U1: 0b0000000003dd
 System Level: 00
 
-
 W-Bus version: 3.3
 Device Name: PQ35 ZH 
 W-Bus code: 213cc0e73f0000
@@ -665,6 +664,23 @@ Date of Manufacture Control Unit: 14.9.3
 Date of Manufacture Heater: 1.10.3
 Customer ID Number: 1K0815071E 0707
 Serial Number: 0000349144
-Sensor8: 42f0d004081858
+Sensor8: 420975b7000000
 U1: 0b0000000003bf
-System Level: 58
+System Level: 75
+
+Some Software version (from elektroda.pl)
+1K0 815 007CD, SW: 4709
+1K0 815 005JT, SW: 4707
+1K0 815 005JT, SW: 4707
+1K0 815 005JJ, SW: 4404
+1K0 815 005JJ, SW: 4404
+1K0 815 005JD, SW: 4404
+1K0 815 007BH, SW: 4404
+3C0 815 005AB, SW: 4401
+1K0 815 007BT, SW: 3907
+1K0 815 007BG, SW: 3803
+1K0 815 005DR, SW: 1706
+1K0 815 005GT, SW
+1K0 815 005FR, SW: 1305
+1K0 815 007AM, SW: 4804
+1K0 815 071E,  SW: 1603
