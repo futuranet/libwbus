@@ -160,6 +160,7 @@ int msp430_timer_tick(void)
 }
 
 
+
 static rtc_time_t rtc_now, rtc_alarm;
 static rtc_alarm_callback rtc_alarm_cb;
 static void *rtc_alarm_data;
@@ -269,7 +270,42 @@ void rtc_getalarm(rtc_time_t *t)
   memcpy(t, &rtc_alarm, sizeof(rtc_time_t));
 }
 
-#ifndef POELI_HW
+#ifdef POELI_HW
+static
+void adc_init(void)
+{
+  ADC12CTL0 = 0;
+
+  /* ADC12 sensor inputs */
+  P6SEL = BIT0|BIT1|BIT2|BIT3|BIT4|BIT5|BIT6|BIT7;
+  P6DIR = 0;
+  P6OUT = 0;
+
+  ADC12CTL0 = SHT1_6|SHT0_6|MSC|ADC12ON;
+  ADC12CTL1 = CSTARTADD_0|SHS_1|SHP|ADC12DIV_0|ADC12SSEL_0|CONSEQ_3;
+
+  ADC12IFG = 0;
+
+  /* Trigger interrupt for first and last ADC12MEM for data validation */
+  ADC12IE = (1<<11) | (1<<0);
+
+  /* Setup channel references and memory */
+  ADC12MCTL0 = INCH_0|SREF_0;
+  ADC12MCTL1 = INCH_1|SREF_0;
+  ADC12MCTL2 = INCH_2|SREF_0;
+  ADC12MCTL3 = INCH_3|SREF_0;
+  ADC12MCTL4 = INCH_4|SREF_0;
+  ADC12MCTL5 = INCH_5|SREF_0;
+  ADC12MCTL6 = INCH_6|SREF_0;
+  ADC12MCTL7 = INCH_7|SREF_0;
+  ADC12MCTL8 = INCH_8|SREF_0;
+  ADC12MCTL9 = INCH_9|SREF_0;
+  ADC12MCTL10 = INCH_10|SREF_0;     /* Temp */
+  ADC12MCTL11 = INCH_11|SREF_0|EOS; /* AVcc */
+
+  ADC12CTL0 |= ENC;
+}
+#else
 
 #define VREF 3300
 #define VCCREF 12500
@@ -335,10 +371,6 @@ void adc_read(unsigned short s[], int n)
   }
 }
 
-#endif
-
-#ifdef __MSP430_449__
-
 static
 void adc_init(void)
 {
@@ -357,7 +389,9 @@ void adc_init(void)
   ADC12MCTL4 = INCH_10|SREF_1; /* Temp */
   ADC12MCTL5 = INCH_11|SREF_1; /* AVcc */
 }
+#endif /* ifndef POELI_HW */
 
+#ifdef __MSP430_449__
 static void msp430_core_init(void)
 {
   FLL_CTL0 &= ~XTS_FLL;         /* XT1 as low-frequency */
@@ -448,43 +482,6 @@ interrupt(WDT_VECTOR) msp430_watchdog_rtc(void)
 }
 
 #elif defined(__MSP430_169__) || defined(__MSP430_1611__) || defined(__MSP430_149__)
-
-static
-void adc_init(void)
-{
-  ADC12CTL0 = 0;
-
-#ifdef POELI_HW
-  /* ADC12 sensor inputs */
-  P6SEL = BIT0|BIT1|BIT2|BIT3|BIT4|BIT5|BIT6|BIT7;
-  P6DIR = 0;
-  P6OUT = 0;
-
-  ADC12CTL0 = SHT1_6|SHT0_6|MSC|ADC12ON;
-  ADC12CTL1 = CSTARTADD_0|SHS_1|SHP|ADC12DIV_0|ADC12SSEL_0|CONSEQ_3;
-
-  ADC12IFG = 0;
-
-  /* Trigger interrupt for first and last ADC12MEM for data validation */
-  ADC12IE = (1<<11) | (1<<0);
-
-  /* Setup channel references and memory */
-  ADC12MCTL0 = INCH_0|SREF_0;
-  ADC12MCTL1 = INCH_1|SREF_0;
-  ADC12MCTL2 = INCH_2|SREF_0;
-  ADC12MCTL3 = INCH_3|SREF_0;
-  ADC12MCTL4 = INCH_4|SREF_0;
-  ADC12MCTL5 = INCH_5|SREF_0;
-  ADC12MCTL6 = INCH_6|SREF_0;
-  ADC12MCTL7 = INCH_7|SREF_0;
-  ADC12MCTL8 = INCH_8|SREF_0;
-  ADC12MCTL9 = INCH_9|SREF_0;
-  ADC12MCTL10 = INCH_10|SREF_0;     /* Temp */
-  ADC12MCTL11 = INCH_11|SREF_0|EOS; /* AVcc */
-
-  ADC12CTL0 |= ENC;
-#endif
-}
 
 static void msp430_core_init(void)
 {
@@ -584,15 +581,9 @@ void machine_init_io(void)
   P5SEL &= ~(BIT0|BIT1|BIT2);
 
   /* LCD background light, GSM on/off, GSM power inhibit */
-#if 1
   P6OUT &= ~(BIT3|BIT4|BIT2);
   P6SEL &= ~(BIT3|BIT4|BIT2);
   P6DIR |= BIT3|BIT4|BIT2;
-#else
-  P6OUT = 0;
-  P6SEL = 0;
-  P6DIR = BIT3|BIT4|BIT2;
-#endif
 
   /* Buttons */
   P3DIR &= ~(BIT0|BIT1|BIT2|BIT3);
@@ -833,7 +824,7 @@ int machine_backlight_get(void)
 #ifdef BACKLIGHT_PWM
   return machine_backlight_pwm1-1;
 #else
-  return (P6OUT & BIT3) ? 1 : 0;
+  return (P6OUT & BIT3) ? BACKLIGHT_MAX : 0;
 #endif
 }
 
