@@ -48,6 +48,7 @@
 <layer number="52" name="bDocu" color="7" fill="1" visible="no" active="no"/>
 <layer number="53" name="tGND_GNDA" color="7" fill="9" visible="no" active="no"/>
 <layer number="54" name="bGND_GNDA" color="1" fill="9" visible="no" active="no"/>
+<layer number="56" name="wert" color="7" fill="1" visible="no" active="no"/>
 <layer number="91" name="Nets" color="2" fill="1" visible="yes" active="yes"/>
 <layer number="92" name="Busses" color="1" fill="1" visible="yes" active="yes"/>
 <layer number="93" name="Pins" color="2" fill="1" visible="no" active="yes"/>
@@ -74,6 +75,8 @@
 <layer number="124" name="bTestmark" color="7" fill="1" visible="no" active="yes"/>
 <layer number="131" name="tAdjust" color="7" fill="1" visible="no" active="yes"/>
 <layer number="132" name="bAdjust" color="7" fill="1" visible="no" active="yes"/>
+<layer number="150" name="Notes" color="7" fill="1" visible="yes" active="yes"/>
+<layer number="151" name="HeatSink" color="14" fill="1" visible="no" active="no"/>
 <layer number="200" name="200bmp" color="7" fill="1" visible="no" active="yes"/>
 <layer number="201" name="201bmp" color="7" fill="1" visible="no" active="yes"/>
 <layer number="202" name="202bmp" color="7" fill="1" visible="no" active="yes"/>
@@ -17340,6 +17343,118 @@ Source: www.epcos.com .. 01430148.pdf</description>
 </deviceset>
 </devicesets>
 </library>
+<library name="resistor-array">
+<description>&lt;b&gt;SMD Resistor Arrays&lt;/b&gt;&lt;p&gt;
+CTS, Rohm, etc&lt;p&gt;
+&lt;p&gt;THIS LIBRARY IS PROVIDED AS IS AND WITHOUT WARRANTY OF ANY KIND, EXPRESSED OR IMPLIED.&lt;br&gt;
+USE AT YOUR OWN RISK!&lt;p&gt;
+&lt;author&gt;Copyright (C) 2008, Bob Starr&lt;br&gt; http://www.bobstarr.net&lt;br&gt;&lt;/author&gt;</description>
+<packages>
+<package name="742-8">
+<description>CTS 742 Series&lt;p&gt;
+8 Terminations, 4 Resistors</description>
+<wire x1="-1.7463" y1="0.9525" x2="-1.7463" y2="-0.9525" width="0.2032" layer="51"/>
+<wire x1="1.7463" y1="0.9525" x2="1.7463" y2="-0.9525" width="0.2032" layer="51"/>
+<wire x1="-1.7463" y1="0.9525" x2="1.7463" y2="0.9525" width="0.2032" layer="51"/>
+<wire x1="-1.7463" y1="-0.9525" x2="1.7463" y2="-0.9525" width="0.2032" layer="51"/>
+<wire x1="-1.7463" y1="1.6375" x2="1.7463" y2="1.6375" width="0.2032" layer="21"/>
+<wire x1="1.7463" y1="1.6375" x2="1.7463" y2="-1.6375" width="0.2032" layer="21"/>
+<wire x1="1.7463" y1="-1.6375" x2="-1.7463" y2="-1.6375" width="0.2032" layer="21"/>
+<wire x1="-1.7463" y1="-1.6375" x2="-1.7463" y2="1.6375" width="0.2032" layer="21"/>
+<circle x="-1.1875" y="-0.1263" radius="0.1797" width="0" layer="21"/>
+<smd name="1" x="-1.2" y="-0.9" dx="0.5" dy="0.9" layer="1"/>
+<smd name="2" x="-0.4" y="-0.9" dx="0.5" dy="0.9" layer="1"/>
+<smd name="3" x="0.4" y="-0.9" dx="0.5" dy="0.9" layer="1"/>
+<smd name="4" x="1.2" y="-0.9" dx="0.5" dy="0.9" layer="1"/>
+<smd name="5" x="1.2" y="0.9" dx="0.5" dy="0.9" layer="1" rot="R180"/>
+<smd name="6" x="0.4" y="0.9" dx="0.5" dy="0.9" layer="1" rot="R180"/>
+<smd name="7" x="-0.4" y="0.9" dx="0.5" dy="0.9" layer="1" rot="R180"/>
+<smd name="8" x="-1.2" y="0.9" dx="0.5" dy="0.9" layer="1" rot="R180"/>
+<text x="-2.2225" y="-1.5875" size="0.8128" layer="25" ratio="18" rot="R90">&gt;NAME</text>
+<text x="2.8575" y="-1.5875" size="0.8128" layer="27" ratio="10" rot="R90">&gt;VALUE</text>
+</package>
+<package name="742-8NS">
+<description>CTS 742 Series&lt;p&gt;
+8 Terminations, 4 Resistors</description>
+<wire x1="-1.7463" y1="0.9525" x2="-1.7463" y2="-0.9525" width="0.2032" layer="51"/>
+<wire x1="1.7463" y1="0.9525" x2="1.7463" y2="-0.9525" width="0.2032" layer="51"/>
+<wire x1="-1.7463" y1="0.9525" x2="1.7463" y2="0.9525" width="0.2032" layer="51"/>
+<wire x1="-1.7463" y1="-0.9525" x2="1.7463" y2="-0.9525" width="0.2032" layer="51"/>
+<circle x="-1.1875" y="-0.1263" radius="0.1797" width="0" layer="21"/>
+<smd name="1" x="-1.2" y="-0.9" dx="0.5" dy="0.9" layer="1"/>
+<smd name="2" x="-0.4" y="-0.9" dx="0.5" dy="0.9" layer="1"/>
+<smd name="3" x="0.4" y="-0.9" dx="0.5" dy="0.9" layer="1"/>
+<smd name="4" x="1.2" y="-0.9" dx="0.5" dy="0.9" layer="1"/>
+<smd name="5" x="1.2" y="0.9" dx="0.5" dy="0.9" layer="1" rot="R180"/>
+<smd name="6" x="0.4" y="0.9" dx="0.5" dy="0.9" layer="1" rot="R180"/>
+<smd name="7" x="-0.4" y="0.9" dx="0.5" dy="0.9" layer="1" rot="R180"/>
+<smd name="8" x="-1.2" y="0.9" dx="0.5" dy="0.9" layer="1" rot="R180"/>
+<text x="-2.2225" y="-1.5875" size="0.8128" layer="25" ratio="18" rot="R90">&gt;NAME</text>
+<text x="2.8575" y="-1.5875" size="0.8128" layer="27" ratio="10" rot="R90">&gt;VALUE</text>
+</package>
+</packages>
+<symbols>
+<symbol name="R1NV">
+<wire x1="-2.54" y1="0" x2="-2.2225" y2="-0.9525" width="0.2032" layer="94"/>
+<wire x1="-2.2225" y1="-0.9525" x2="-1.5875" y2="0.9525" width="0.2032" layer="94"/>
+<wire x1="-1.5875" y1="0.9525" x2="-0.9525" y2="-0.9525" width="0.2032" layer="94"/>
+<wire x1="-0.9525" y1="-0.9525" x2="-0.3175" y2="0.9525" width="0.2032" layer="94"/>
+<wire x1="-0.3175" y1="0.9525" x2="0.3175" y2="-0.9525" width="0.2032" layer="94"/>
+<wire x1="0.3175" y1="-0.9525" x2="0.9525" y2="0.9525" width="0.2032" layer="94"/>
+<wire x1="0.9525" y1="0.9525" x2="1.5875" y2="-0.9525" width="0.2032" layer="94"/>
+<wire x1="1.5875" y1="-0.9525" x2="2.2225" y2="0.9525" width="0.2032" layer="94"/>
+<wire x1="2.2225" y1="0.9525" x2="2.54" y2="0" width="0.2032" layer="94"/>
+<text x="3.175" y="-2.2225" size="1.778" layer="96">&gt;VALUE</text>
+<text x="-3.175" y="-2.2225" size="1.778" layer="95" rot="MR0">&gt;NAME</text>
+<pin name="1" x="-5.08" y="0" visible="pad" length="short" direction="pas" swaplevel="1"/>
+<pin name="2" x="5.08" y="0" visible="pad" length="short" direction="pas" swaplevel="1" rot="R180"/>
+</symbol>
+</symbols>
+<devicesets>
+<deviceset name="742-8_S" prefix="RN" uservalue="yes">
+<description>&lt;b&gt;CTS 742 Series&lt;/b&gt;&lt;p&gt;
+8 Terminations, 4 Resistors</description>
+<gates>
+<gate name="A" symbol="R1NV" x="0" y="7.62" swaplevel="1"/>
+<gate name="B" symbol="R1NV" x="0" y="2.54" swaplevel="1"/>
+<gate name="C" symbol="R1NV" x="0" y="-2.54" swaplevel="1"/>
+<gate name="D" symbol="R1NV" x="0" y="-7.62" swaplevel="1"/>
+</gates>
+<devices>
+<device name="" package="742-8">
+<connects>
+<connect gate="A" pin="1" pad="1"/>
+<connect gate="A" pin="2" pad="8"/>
+<connect gate="B" pin="1" pad="2"/>
+<connect gate="B" pin="2" pad="7"/>
+<connect gate="C" pin="1" pad="3"/>
+<connect gate="C" pin="2" pad="6"/>
+<connect gate="D" pin="1" pad="4"/>
+<connect gate="D" pin="2" pad="5"/>
+</connects>
+<technologies>
+<technology name=""/>
+</technologies>
+</device>
+<device name="NS" package="742-8NS">
+<connects>
+<connect gate="A" pin="1" pad="1"/>
+<connect gate="A" pin="2" pad="8"/>
+<connect gate="B" pin="1" pad="2"/>
+<connect gate="B" pin="2" pad="7"/>
+<connect gate="C" pin="1" pad="3"/>
+<connect gate="C" pin="2" pad="6"/>
+<connect gate="D" pin="1" pad="4"/>
+<connect gate="D" pin="2" pad="5"/>
+</connects>
+<technologies>
+<technology name=""/>
+</technologies>
+</device>
+</devices>
+</deviceset>
+</devicesets>
+</library>
 </libraries>
 <attributes>
 </attributes>
@@ -17479,10 +17594,6 @@ Source: www.epcos.com .. 01430148.pdf</description>
 <part name="C10" library="rcl" deviceset="C-EU" device="C1206" value="104"/>
 <part name="GND8" library="supply1" deviceset="GND" device=""/>
 <part name="+3V13" library="supply1" deviceset="+3V3" device=""/>
-<part name="R5" library="rcl" deviceset="R-EU_" device="R0603" value="10k"/>
-<part name="R6" library="rcl" deviceset="R-EU_" device="R0603" value="10k"/>
-<part name="R7" library="rcl" deviceset="R-EU_" device="R0603" value="10k"/>
-<part name="R25" library="rcl" deviceset="R-EU_" device="R0603" value="10k"/>
 <part name="C2" library="rcl" deviceset="C-EU" device="C1210K" value="10uF ceramic"/>
 <part name="C9" library="rcl" deviceset="CPOL-US" device="CT7343" value="470uF"/>
 <part name="C15" library="rcl" deviceset="CPOL-US" device="153CLV-0505" value="100uF"/>
@@ -17490,6 +17601,7 @@ Source: www.epcos.com .. 01430148.pdf</description>
 <part name="VR2" library="varistor" deviceset="VARISTOR" device="CN1812" value="4.5V"/>
 <part name="F2" library="rcl" deviceset="R-EU_" device="R2010" value="3A"/>
 <part name="GND15" library="supply1" deviceset="GND" device=""/>
+<part name="RN1" library="resistor-array" deviceset="742-8_S" device=""/>
 </parts>
 <sheets>
 <sheet>
@@ -17623,10 +17735,6 @@ Source: www.epcos.com .. 01430148.pdf</description>
 <instance part="C10" gate="G$1" x="350.52" y="63.5" rot="R180"/>
 <instance part="GND8" gate="1" x="350.52" y="53.34"/>
 <instance part="+3V13" gate="G$1" x="116.84" y="30.48"/>
-<instance part="R5" gate="G$1" x="124.46" y="22.86" rot="R180"/>
-<instance part="R6" gate="G$1" x="124.46" y="15.24" rot="R180"/>
-<instance part="R7" gate="G$1" x="124.46" y="7.62" rot="R180"/>
-<instance part="R25" gate="G$1" x="124.46" y="0" rot="R180"/>
 <instance part="C2" gate="G$1" x="292.1" y="149.86" rot="R180"/>
 <instance part="C9" gate="G$1" x="340.36" y="121.92"/>
 <instance part="C15" gate="G$1" x="297.18" y="149.86" rot="R180"/>
@@ -17634,6 +17742,10 @@ Source: www.epcos.com .. 01430148.pdf</description>
 <instance part="VR2" gate="G$1" x="358.14" y="121.92" rot="R270"/>
 <instance part="F2" gate="G$1" x="350.52" y="139.7" rot="R90"/>
 <instance part="GND15" gate="1" x="358.14" y="109.22"/>
+<instance part="RN1" gate="A" x="124.46" y="7.62" rot="R180"/>
+<instance part="RN1" gate="B" x="124.46" y="0" rot="R180"/>
+<instance part="RN1" gate="C" x="124.46" y="22.86" rot="R180"/>
+<instance part="RN1" gate="D" x="124.46" y="15.24" rot="R180"/>
 </instances>
 <busses>
 <bus name="D0,D1,D2,D3,D4,D5,D6,D7,RW,E,RS">
@@ -17963,22 +18075,22 @@ Source: www.epcos.com .. 01430148.pdf</description>
 <junction x="337.82" y="78.74"/>
 </segment>
 <segment>
-<pinref part="R25" gate="G$1" pin="2"/>
 <wire x1="119.38" y1="0" x2="116.84" y2="0" width="0.1524" layer="91"/>
 <wire x1="116.84" y1="0" x2="116.84" y2="7.62" width="0.1524" layer="91"/>
-<pinref part="R7" gate="G$1" pin="2"/>
 <wire x1="116.84" y1="7.62" x2="119.38" y2="7.62" width="0.1524" layer="91"/>
-<pinref part="R6" gate="G$1" pin="2"/>
 <wire x1="119.38" y1="15.24" x2="116.84" y2="15.24" width="0.1524" layer="91"/>
 <wire x1="116.84" y1="15.24" x2="116.84" y2="7.62" width="0.1524" layer="91"/>
 <junction x="116.84" y="7.62"/>
-<pinref part="R5" gate="G$1" pin="2"/>
 <wire x1="119.38" y1="22.86" x2="116.84" y2="22.86" width="0.1524" layer="91"/>
 <wire x1="116.84" y1="22.86" x2="116.84" y2="15.24" width="0.1524" layer="91"/>
 <junction x="116.84" y="15.24"/>
 <pinref part="+3V13" gate="G$1" pin="+3V3"/>
 <wire x1="116.84" y1="22.86" x2="116.84" y2="27.94" width="0.1524" layer="91"/>
 <junction x="116.84" y="22.86"/>
+<pinref part="RN1" gate="A" pin="2"/>
+<pinref part="RN1" gate="B" pin="2"/>
+<pinref part="RN1" gate="C" pin="2"/>
+<pinref part="RN1" gate="D" pin="2"/>
 </segment>
 </net>
 <net name="N$27" class="0">
@@ -18617,13 +18729,13 @@ Source: www.epcos.com .. 01430148.pdf</description>
 <segment>
 <pinref part="B0" gate="G$1" pin="P"/>
 <wire x1="154.94" y1="22.86" x2="154.94" y2="20.32" width="0.1524" layer="91"/>
-<pinref part="R25" gate="G$1" pin="1"/>
 <wire x1="154.94" y1="20.32" x2="154.94" y2="17.78" width="0.1524" layer="91"/>
 <wire x1="129.54" y1="0" x2="147.32" y2="0" width="0.1524" layer="91"/>
 <wire x1="147.32" y1="0" x2="147.32" y2="17.78" width="0.1524" layer="91"/>
 <wire x1="147.32" y1="17.78" x2="147.32" y2="20.32" width="0.1524" layer="91"/>
 <wire x1="147.32" y1="20.32" x2="154.94" y2="20.32" width="0.1524" layer="91"/>
 <junction x="154.94" y="20.32"/>
+<pinref part="RN1" gate="B" pin="1"/>
 </segment>
 <segment>
 <pinref part="U$1" gate="G$1" pin="30"/>
@@ -18634,12 +18746,12 @@ Source: www.epcos.com .. 01430148.pdf</description>
 <segment>
 <pinref part="B1" gate="G$1" pin="P"/>
 <wire x1="172.72" y1="22.86" x2="172.72" y2="20.32" width="0.1524" layer="91"/>
-<pinref part="R7" gate="G$1" pin="1"/>
 <wire x1="172.72" y1="20.32" x2="172.72" y2="17.78" width="0.1524" layer="91"/>
 <wire x1="129.54" y1="7.62" x2="167.64" y2="7.62" width="0.1524" layer="91"/>
 <wire x1="167.64" y1="7.62" x2="167.64" y2="20.32" width="0.1524" layer="91"/>
 <wire x1="167.64" y1="20.32" x2="172.72" y2="20.32" width="0.1524" layer="91"/>
 <junction x="172.72" y="20.32"/>
+<pinref part="RN1" gate="A" pin="1"/>
 </segment>
 <segment>
 <pinref part="U$1" gate="G$1" pin="31"/>
@@ -18650,12 +18762,12 @@ Source: www.epcos.com .. 01430148.pdf</description>
 <segment>
 <pinref part="B2" gate="G$1" pin="P"/>
 <wire x1="187.96" y1="22.86" x2="187.96" y2="20.32" width="0.1524" layer="91"/>
-<pinref part="R6" gate="G$1" pin="1"/>
 <wire x1="187.96" y1="20.32" x2="187.96" y2="17.78" width="0.1524" layer="91"/>
 <wire x1="129.54" y1="15.24" x2="185.42" y2="15.24" width="0.1524" layer="91"/>
 <wire x1="185.42" y1="15.24" x2="185.42" y2="20.32" width="0.1524" layer="91"/>
 <wire x1="185.42" y1="20.32" x2="187.96" y2="20.32" width="0.1524" layer="91"/>
 <junction x="187.96" y="20.32"/>
+<pinref part="RN1" gate="D" pin="1"/>
 </segment>
 <segment>
 <pinref part="U$1" gate="G$1" pin="28"/>
@@ -18666,7 +18778,6 @@ Source: www.epcos.com .. 01430148.pdf</description>
 <segment>
 <pinref part="B3" gate="G$1" pin="P"/>
 <wire x1="203.2" y1="22.86" x2="203.2" y2="20.32" width="0.1524" layer="91"/>
-<pinref part="R5" gate="G$1" pin="1"/>
 <wire x1="203.2" y1="20.32" x2="203.2" y2="17.78" width="0.1524" layer="91"/>
 <wire x1="129.54" y1="22.86" x2="147.32" y2="22.86" width="0.1524" layer="91"/>
 <wire x1="147.32" y1="22.86" x2="147.32" y2="25.4" width="0.1524" layer="91"/>
@@ -18674,6 +18785,7 @@ Source: www.epcos.com .. 01430148.pdf</description>
 <wire x1="198.12" y1="25.4" x2="198.12" y2="20.32" width="0.1524" layer="91"/>
 <wire x1="198.12" y1="20.32" x2="203.2" y2="20.32" width="0.1524" layer="91"/>
 <junction x="203.2" y="20.32"/>
+<pinref part="RN1" gate="C" pin="1"/>
 </segment>
 <segment>
 <pinref part="U$1" gate="G$1" pin="29"/>
