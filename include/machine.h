@@ -95,7 +95,7 @@ unsigned int machine_buttons(int do_read);
 #if defined(__MSP430_169__) || defined(__MSP430_149__) || defined(__MSP430_1611__)
 #define TFREQ 128UL /* Software timer timebase */
 #define JFREQ 4096UL /* Jiffies timebase */
-#define JIFFIES2TIMER(x) ((x)>>5) 
+#define JIFFIES2TIMER(x) ((x)>>5)
 #define TIMER2JIFFIES(x) ((x)<<5)
 #define POELI_UART1_ON
 #elif defined(__MSP430_449__)
@@ -105,12 +105,15 @@ unsigned int machine_buttons(int do_read);
 #define TIMER2JIFFIES(x) ((x)<<8)
 #elif defined(__linux__)
 #include <time.h>
-
+#define JIFFIES2TIMER(x) (x)
+#define TIMER2JIFFIES(x) (x)
 #define TFREQ 100
 #define JFREQ 100
 #elif defined(_WIN32)
-#define TFREQ 1000
-#define JFREQ 1000
+#define JIFFIES2TIMER(x) (x)
+#define TIMER2JIFFIES(x) (x)
+#define TFREQ 100
+#define JFREQ 100
 #elif defined(__arm__)
 #define TFREQ 1000
 #define JFREQ 1000

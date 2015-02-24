@@ -12,6 +12,8 @@
 #include <time.h>
 #include <stdlib.h>
 #include <windows.h>
+#include <conio.h>
+#include <assert.h>
 
 #define MAX_FASTTIMERS 6
 #define MAX_SLOWTIMERS 6
@@ -71,6 +73,11 @@ void machine_timer_destroy(HANDLE_TIMER hTimer)
   timer->enabled = 0;
 }
 
+void machine_timer_reset(HANDLE_TIMER hTimer, int ival)
+{
+  hTimer->reload = ival;
+}
+  
 
 static rtc_time_t rtc_now, rtc_alarm;
 static rtc_alarm_callback rtc_alarm_cb;
@@ -210,7 +217,6 @@ void rtc_getalarm(rtc_time_t *t)
 
 #include "wbus_server.h"
 
-//static unsigned short (*d)[16];
 static unsigned short d[2][16];
 
 void machine_init(void)
@@ -239,6 +245,7 @@ void machine_init(void)
 
 void machine_usleep(unsigned long us) /* 9+a*12 cycles */
 {
+#if 0
   struct timeval timeout;
   
   timeout.tv_sec = 0;
@@ -250,6 +257,9 @@ void machine_usleep(unsigned long us) /* 9+a*12 cycles */
   {
     select(0, NULL, NULL, NULL, &timeout);
   }
+#else
+  Sleep(us/1000);
+#endif
 }
 
 void machine_msleep(unsigned int b)
@@ -288,18 +298,52 @@ int machine_backlight_get(void)
 unsigned int machine_buttons(int do_read)
 {
   char key = 0;
-  struct timeval tv = { 0L, 0L };
-  fd_set fds;
-  FD_SET(0, &fds);
-    
-  if (select(1, &fds, NULL, NULL, &tv)) {
-    if (do_read) {
-      read(fileno(stdin), &key, 1);
+
+#if 0  
+  if (_kbhit()) {
+    key = _getch();
+    printf("\n\n\n\n\n\n\n\n\nread %c\n", key);
+    key = 1<<(key-'1');
+  }
+#else
+  INPUT_RECORD ir[1];
+  HANDLE hStdIn;
+  DWORD lpNumberOfEventsRead=0, mode;
+  BOOL success;
+  
+  hStdIn = GetStdHandle(STD_INPUT_HANDLE);
+  if (hStdIn == INVALID_HANDLE_VALUE) {
+    printf("GetStdHandle failed\n");
+  }
+  success = GetConsoleMode(hStdIn, &mode);
+  if (success == FALSE) {
+    printf("GetConsoleMode failed\n");
+  }
+  mode &= ENABLE_ECHO_INPUT|ENABLE_LINE_INPUT;
+  success = SetConsoleMode(hStdIn, mode);
+  if (success == FALSE) {
+    printf("SetConsoleMode failed\n");
+  }
+  success = PeekConsoleInput(GetStdHandle(STD_INPUT_HANDLE), ir, 1, &lpNumberOfEventsRead);
+  if (success == FALSE) {
+    printf("Error\n");
+  }
+  if (lpNumberOfEventsRead > 0)
+  { 
+    success = ReadConsoleInput(hStdIn, ir, 1, &lpNumberOfEventsRead);
+    if (success == TRUE) {
+      key = ir[0].Event.KeyEvent.uChar.AsciiChar;
+      printf("\n\n\n\n\n\n\n\n\nread %c\n", key);
+      if (key >= '0' && key <= '3') {
+        key = 1<<(key-'1');
+      } else {
+        key = 0;
+      }
     } else {
-      key = 1;
+      printf("ReadConsoleInput failed\n");
     }
   }
-
+#endif
   return (unsigned int)key;
 }            
 

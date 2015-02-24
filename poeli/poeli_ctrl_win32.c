@@ -21,11 +21,6 @@
 /* Modulate GK and Nozzle stock preheating power */
 //#define GK_MODULATE
 
-#include <sys/ipc.h> 
-#include <sys/shm.h> 
-#include <sys/time.h>
-
-static int shmid;
 static unsigned short (*d)[16];
 
 /* Actuator ouput pin state while driver on or off. */
@@ -433,15 +428,6 @@ void poeli_ctrl_ack(int ack)
 
 void poeli_ctrl_init(void)
 {
-  shmid = shmget(0xb0E1, 4096, 0666 | IPC_CREAT);
-  if (shmid == -1) {
-    printf("shmget() failed\n");
-  }
-  d = shmat(shmid, (void *)0, 0);
-  if ((int)d == -1) {
-    printf("shmat() failed (d)\n");
-  }
-
   adc_invalidate();
   pack=0;
   hTimerFp=NULL;

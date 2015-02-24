@@ -24,19 +24,19 @@ CFLAGS = -DPSENSOR=$(PSENSOR) -DCAF_TYPE=$(CAF) -DNOZZLE=$(NOZZLE)
 
 # Differentiate between egg or poeli type hardware.
 ifeq "$(VARIANT)" ""
-	VARIANT=poeli # egg
-	$(warning Assuming VARIANT=$(VARIANT))
+  VARIANT=poeli
+  $(warning Assuming VARIANT=$(VARIANT))
 endif
 
 ifeq "$(VARIANT)" "egg"
-	CFLAGS += -DEGG_HW
-	PROGRAMS = $(BINDIR)/openegg$(EXE_SUFFIX)
+  CFLAGS += -DEGG_HW
+  PROGRAMS = $(BINDIR)/openegg$(EXE_SUFFIX)
 else ifeq "$(VARIANT)" "poeli"
-	CFLAGS += -DPOELI_HW
-	PROGRAMS = $(BINDIR)/poeli$(EXE_SUFFIX)
+  CFLAGS += -DPOELI_HW
+  PROGRAMS = $(BINDIR)/poeli$(EXE_SUFFIX)
 else ifeq "$(VARIANT)" "ph"
-	CFLAGS += -DPH_HW
-	PROGRAMS = $(BINDIR)/ph$(EXE_SUFFIX)
+  CFLAGS += -DPH_HW
+  PROGRAMS = $(BINDIR)/ph$(EXE_SUFFIX)
 endif
 
 #CFLAGS += -g -O2 -finline-functions -Wall -Iinclude -Isrc

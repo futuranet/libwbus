@@ -19,6 +19,52 @@
 #define GSM_BAUDRATE 115200
 #endif
 
+/*
+ SIM800L
+ 
+ +CLIP: "49xxxxxxxxxxxx",145,"",0,"",0
+ 
+ at+csq
+ +CSQ: 20,0
+ at+cclk?
+ +CCLK: "01/01/01,00:01:11+01"
+ 
+ +CMGR: 1,"",160
+ 0111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111
+ 
+ OK
+ at+cmgf=1
+ OK
+ at+cmgr=1
+ +CMGR: "REC READ","+65xxx*xxxxxxxxx","","01/01/11,00:01:02+03"
+ Willkommen in der Schweiz! In deinem Tarif kosten Anrufe innerhalb des Landes und in die EU 1 
+ 
+ at+cgmi
+ SIMCOM_Ltd
+ 
+ OK
+ at+cgmm
+ SIMCOM_SIM800L
+ 
+ at+cipgsmloc=2,1
+ +CIPGSMLOC: 601
+ 
+ OK
+ at+sapbr=1,1
+ OK
+ at+cipgsmloc=2,1
+ +CIPGSMLOC: 0,2001/01/01,11:11:11 
+ OK
+ at+cipgsmloc=1,1
+ +CIPGSMLOC: 0,11.111111,11.111111,2010/01/01,11:11:11
+ at+sapbr=0,1
+ OK
+ 
+ at+cpowd=1
+ NORMAL POWER DOWN
+ 
+*/
+
 #define GSMCTL_ADDNUMBER   1 /* The next +CLIP message is registered as an allowed number */
 #define GSMCTL_GOTNUMBER   2 /* A phone number was captured after GSMCTL_ADDNUMBER was set */
 #define GSMCTL_POWERON     4 /* GSM modem is assumed to be powered on upon AT command test */

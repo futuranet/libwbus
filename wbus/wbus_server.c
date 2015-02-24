@@ -718,13 +718,23 @@ int wbus_server_process(unsigned char cmd, unsigned char *data, int *len, heater
       data[6] = 0xdd;
       err = 1;
       break;
-    case WBUS_CMD_FP:
-      PRINTF("Fuel priming (%d) %d seconds\n", data[0], ((data[1]<<8)+data[2])<<1);
-      if (s->volatile_data.status == HT_OFF) {
-        s->volatile_data.act[ACT_DP] = 40; /* Set dosing pump to 2 Hz */
-        s->volatile_data.status_sched = HT_TEST;
-        s->volatile_data.wbus_time = ((((int)data[1]<<9)+((int)data[2]<<1))) * (JFREQ/HEATER_PERIOD);
-        s->volatile_data.time = 0;
+    case WBUS_CMD_X:
+      switch (data[0]) {
+        case CMD_X_FP:
+        PRINTF("Fuel priming %d seconds\n", ((data[1]<<8)+data[2])<<1);
+        if (s->volatile_data.status == HT_OFF) {
+          s->volatile_data.act[ACT_DP] = 40; /* Set dosing pump to 2 Hz */
+          s->volatile_data.status_sched = HT_TEST;
+          s->volatile_data.wbus_time = ((((int)data[1]<<9)+((int)data[2]<<1))) * (JFREQ/HEATER_PERIOD);
+          s->volatile_data.time = 0;
+        }
+        break;
+        case CMD_X_VCAL:
+          PRINTF("Voltage calibration %f Volt\n", ((data[1]<<8)+data[2])/1000.f);
+          break;
+        case CMD_X_FCAL:
+          PRINTF("Flame detector calibration %d\n", (data[1]<<8)+data[2]);
+          break;
       }
       break;
     case WBUS_CMD_CHK:

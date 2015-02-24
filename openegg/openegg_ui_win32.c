@@ -37,6 +37,11 @@ void openegg_ui_update()
   printf("\033[3A%s\n%s\n%s\n", screen[0], screen[1], screen[2]);
 }
 
+void openegg_ui_display_off(void)
+{
+}
+
+
 static
 void openegg_ui_fill(char *str)
 {
